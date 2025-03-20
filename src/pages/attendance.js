@@ -2,16 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db, attendanceCollection } from "../firebase";
 import { getDocs } from "firebase/firestore";
-import AttendanceList from "../components/attendanceList";
+import { getAuth, signOut } from "firebase/auth"; // 🔹 Import Firebase Auth
 import AttendanceForm from "../components/attendanceForm";
-import generateReport from "../components/reportGenerator";
-
-const categories = ["L100s", "Continuing Students", "L400s", "Workers", "Others", "New"];
 
 export default function Attendance() {
   const [attendance, setAttendance] = useState({});
   const [servicesData, setServicesData] = useState({}); // Store total attendance per service
   const navigate = useNavigate();
+  const auth = getAuth(); // 🔹 Get auth instance
 
   useEffect(() => {
     fetchAttendance();
@@ -40,25 +38,31 @@ export default function Attendance() {
     setServicesData(serviceTotals); // Save totals
   };
 
+  // 🔹 Handle Logout Function
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/login"); // Redirect to login after logout
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
   return (
     <div className="container">
-      <h1 className="title">Manage Attendance</h1>
+      <h1 className="title">📌 Manage Attendance</h1>
 
-      
-
-      {/* Attendance Form & List */}
+      {/* Attendance Form */}
       <div className="content-container">
         <AttendanceForm fetchAttendance={fetchAttendance} />
-        
       </div>
 
-      {/* Generate Report Button */}
-      {/* Navigation Buttons */}
+      {/* Navigation & Logout */}
       <div className="button-group">
         <button onClick={() => navigate("/")} className="nav-button">Home</button>
         <button onClick={() => navigate("/analytics")} className="nav-button">View Analytics</button>
+        <button onClick={handleLogout} className="logout-button">Logout</button> {/* 🔹 Logout Button */}
       </div>
-
     </div>
   );
 }

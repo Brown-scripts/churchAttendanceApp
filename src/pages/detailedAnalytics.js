@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collection, getDocs } from "firebase/firestore";
+import { getAuth, signOut } from "firebase/auth"; // 🔹 Import Firebase Auth
 import { db } from "../firebase";
 import AnalyticsComponent from "../components/analytics";
 
@@ -10,6 +11,7 @@ export default function DetailedAnalytics() {
   const { serviceName } = useParams();
   const [serviceData, setServiceData] = useState(null);
   const navigate = useNavigate();
+  const auth = getAuth(); // 🔹 Get auth instance
 
   useEffect(() => {
     fetchServiceData();
@@ -30,6 +32,16 @@ export default function DetailedAnalytics() {
     });
 
     setServiceData(serviceAttendance);
+  };
+
+  // 🔹 Handle Logout Function
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/login"); // Redirect to login after logout
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
 
   // Prevent errors when data is still loading or missing
@@ -56,8 +68,11 @@ export default function DetailedAnalytics() {
     <div className="container">
       <h2 className="title">📊 {serviceName} - Detailed Analytics</h2>
       <AnalyticsComponent chartData={chartData} />
+
+      {/* Navigation & Logout */}
       <div className="button-group">
         <button onClick={() => navigate("/analytics")} className="nav-button">🔙 Back to Overview</button>
+        <button onClick={handleLogout} className="logout-button">Logout</button> {/* 🔹 Logout Button */}
       </div>
     </div>
   );

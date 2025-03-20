@@ -1,7 +1,7 @@
 /* General Styles */
 body {
   font-family: "Inter", sans-serif;
-  background-color: #eef2f7;
+  background-color: #f4f7fc;
   color: #2c3e50;
   margin: 0;
   padding: 0;
@@ -9,40 +9,43 @@ body {
 
 /* Container */
 .container {
-  max-width: 950px;
+  max-width: 800px;
   margin: auto;
-  padding: 25px;
+  padding: 20px;
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Title */
 .title {
   text-align: center;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   color: #34495e;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 /* Buttons */
 .button-group {
   display: flex;
   justify-content: center;
-  gap: 15px;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 15px;
 }
 
+/* General Button Styling */
 button {
-  font-size: 16px;
-  font-weight: 600;
-  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 10px 18px;
   border: none;
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.3s ease-in-out;
-  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.12);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Navigation Button */
@@ -53,6 +56,7 @@ button {
 
 .nav-button:hover {
   background: linear-gradient(135deg, #163162, #20468d);
+  transform: scale(1.04);
 }
 
 /* Report Button */
@@ -63,17 +67,31 @@ button {
 
 .report-button:hover {
   background: linear-gradient(135deg, #218838, #1c7430);
+  transform: scale(1.04);
+}
+
+/* Logout Button */
+.logout-button {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border-radius: 6px;
+  padding: 10px 16px;
+}
+
+.logout-button:hover {
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  transform: scale(1.04);
 }
 
 /* Input Fields */
 input,
 select {
   width: 100%;
-  padding: 12px;
-  font-size: 16px;
-  margin-bottom: 12px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+  margin-bottom: 10px;
+  border: 1.8px solid #ddd;
+  border-radius: 6px;
   background-color: #f9f9f9;
   transition: border 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
 }
@@ -81,7 +99,7 @@ select {
 input:focus,
 select:focus {
   border-color: #2a5298;
-  box-shadow: 0px 0px 8px rgba(42, 82, 152, 0.3);
+  box-shadow: 0px 0px 6px rgba(42, 82, 152, 0.3);
   outline: none;
 }
 
@@ -89,43 +107,44 @@ select:focus {
 .attendance-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
+  gap: 10px;
+  padding: 15px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.08);
 }
 
 /* Add Attendee Button */
 .add-attendee-button {
   background: linear-gradient(135deg, #ff7e5f, #ff3f34);
   color: white;
-  font-size: 16px;
-  padding: 14px 22px;
-  border-radius: 8px;
+  font-size: 14px;
+  padding: 12px 18px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.3s ease-in-out;
 }
 
 .add-attendee-button:hover {
   background: linear-gradient(135deg, #ff3f34, #e82c1e);
+  transform: scale(1.04);
 }
 
 /* Service List */
 .service-list {
-  margin-top: 20px;
+  margin-top: 15px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
 }
 
 .service-button {
   background: linear-gradient(135deg, #007bff, #0056b3);
   color: white;
-  padding: 12px 20px;
+  padding: 10px 16px;
   text-align: center;
-  border-radius: 8px;
+  border-radius: 6px;
   text-decoration: none;
   font-weight: bold;
   transition: background 0.3s ease-in-out;
@@ -133,15 +152,16 @@ select:focus {
 
 .service-button:hover {
   background: linear-gradient(135deg, #0056b3, #003d82);
+  transform: scale(1.04);
 }
 
 /* Chart Section */
 .chart-container {
   background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.08);
-  margin-top: 20px;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.08);
+  margin-top: 15px;
 }
 
 /* Home Page Styles */
@@ -151,72 +171,68 @@ select:focus {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #fafafa; /* Light background color */
-  padding: 20px;
-  font-family: 'Arial', sans-serif;
+  background-color: #fafafa;
+  padding: 15px;
   text-align: center;
 }
 
 .header {
-  margin-bottom: 40px;
+  margin-bottom: 30px;
 }
 
 .logo {
-  width: 120px; /* Adjust size as necessary */
+  width: 90px;
   height: auto;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .church-name {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: bold;
-  color: #3f51b5; /* Deep blue for the title */
-  margin-bottom: 10px;
+  color: #3f51b5;
+  margin-bottom: 8px;
 }
 
 .welcome-text {
-  font-size: 1.2rem;
-  color: #333; /* Dark gray for text */
-  margin-bottom: 40px;
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 30px;
 }
 
+/* Button Layout */
 .buttons-container {
   display: flex;
   flex-direction: column;
-  gap: 15px; /* Space between buttons */
+  gap: 10px;
   width: 100%;
-  max-width: 400px; /* Limit the width */
+  max-width: 350px;
 }
 
 .action-button {
-  padding: 15px;
-  font-size: 1.1rem;
+  padding: 12px;
+  font-size: 1rem;
   font-weight: bold;
-  background-color: #00796b; /* Deep teal for buttons */
+  background: linear-gradient(135deg, #00796b, #004d40);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  transition: all 0.3s ease-in-out;
 }
 
 .action-button:hover {
-  background-color: #004d40; /* Darker teal on hover */
-  transform: scale(1.05); /* Slightly enlarge on hover */
+  background: linear-gradient(135deg, #004d40, #002d25);
+  transform: scale(1.04);
 }
 
-.action-button:active {
-  background-color: #00332e; /* Even darker teal when clicked */
-}
-
-/* Basic styling for the modal */
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -224,27 +240,28 @@ select:focus {
 
 .modal-content {
   background-color: white;
-  padding: 30px;
-  border-radius: 8px;
+  padding: 20px;
+  border-radius: 6px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  width: 300px;
+  width: 280px;
   text-align: center;
 }
 
 .modal-content h2 {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .modal-content input {
   padding: 6px;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   width: 100%;
-  border: 1px solid #ccc;
+  border: 1.5px solid #ccc;
   border-radius: 4px;
 }
 
+/* Modal Buttons */
 .modal-buttons button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   margin: 5px;
   border: none;
   cursor: pointer;
@@ -252,16 +269,25 @@ select:focus {
 }
 
 .submit-button {
-  background-color: #4CAF50;
+  background: linear-gradient(135deg, #4CAF50, #388E3C);
   color: white;
 }
 
 .cancel-button {
-  background-color: #f44336;
+  background: linear-gradient(135deg, #f44336, #d32f2f);
   color: white;
 }
 
-.submit-button:hover, .cancel-button:hover {
-  opacity: 0.8;
+.submit-button:hover,
+.cancel-button:hover {
+  opacity: 0.85;
+}
+
+/* Top Bar */
+.top-bar {
+  position: absolute;
+  top: 8px;
+  right: 15px;
+  z-index: 100;
 }
 

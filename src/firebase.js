@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection } from "firebase/firestore";
+import { getAuth,setPersistence, browserSessionPersistence } from "firebase/auth";
 
 // Your Firebase configuration using environment variables
 const firebaseConfig = {
@@ -21,5 +22,18 @@ const db = getFirestore(app);
 // ✅ Define the collection reference
 const attendanceCollection = collection(db, "attendance");
 
+// ✅ Initialize Firebase Authentication
+const auth = getAuth(app);
+
+// 🔹 Set session persistence to last only while the tab is open
+setPersistence(auth, browserSessionPersistence)
+  .then(() => {
+    console.log("Session will expire when tab is closed.");
+  })
+  .catch((error) => {
+    console.error("Error setting persistence:", error);
+  });
+
 // ✅ Export Firestore database and collection
-export { db, attendanceCollection };
+export { db, attendanceCollection,auth };
+
