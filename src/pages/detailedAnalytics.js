@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { collection, getDocs } from "firebase/firestore";
-import { getAuth, signOut } from "firebase/auth"; // 🔹 Import Firebase Auth
+import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
+import { getAuth, signOut } from "firebase/auth"; 
 import { db } from "../firebase";
 import AnalyticsComponent from "../components/analytics";
 
@@ -11,7 +11,7 @@ export default function DetailedAnalytics() {
   const { serviceName } = useParams();
   const [serviceData, setServiceData] = useState(null);
   const navigate = useNavigate();
-  const auth = getAuth(); // 🔹 Get auth instance
+  const auth = getAuth(); 
 
   useEffect(() => {
     fetchServiceData();
@@ -34,17 +34,36 @@ export default function DetailedAnalytics() {
     setServiceData(serviceAttendance);
   };
 
+  // 🔹 Handle Delete Service Function
+  const handleDeleteService = async () => {
+    if (!window.confirm(`Are you sure you want to delete all records for ${serviceName}?`)) return;
+
+    try {
+      const serviceQuery = query(collection(db, "attendance"), where("serviceName", "==", serviceName));
+      const querySnapshot = await getDocs(serviceQuery);
+
+      querySnapshot.forEach(async (docSnapshot) => {
+        await deleteDoc(doc(db, "attendance", docSnapshot.id));
+      });
+
+      alert(`${serviceName} has been deleted.`);
+      navigate("/analytics"); // Redirect after deletion
+    } catch (error) {
+      console.error("Error deleting service:", error);
+      alert("Failed to delete service.");
+    }
+  };
+
   // 🔹 Handle Logout Function
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate("/login"); // Redirect to login after logout
+      navigate("/login"); 
     } catch (error) {
       console.error("Logout Error:", error);
     }
   };
 
-  // Prevent errors when data is still loading or missing
   if (!serviceData) {
     return <h3 style={{ textAlign: "center" }}>Loading Detailed Analytics...</h3>;
   }
@@ -69,10 +88,10 @@ export default function DetailedAnalytics() {
       <h2 className="title">📊 {serviceName} - Detailed Analytics</h2>
       <AnalyticsComponent chartData={chartData} />
 
-      {/* Navigation & Logout */}
+      {/* Navigation, Delete & Logout */}
       <div className="button-group">
-        <button onClick={() => navigate("/analytics")} className="nav-button">🔙 Back to Overview</button>
-        <button onClick={handleLogout} className="logout-button">Logout</button> {/* 🔹 Logout Button */}
+        <button onClick={() => navigate("/analytics")} className="nav-button">Back to Overview</button>
+        <button onClick={handleDeleteService} className="delete-button">Delete Service</button>
       </div>
     </div>
   );

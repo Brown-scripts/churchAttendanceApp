@@ -291,3 +291,17 @@ select:focus {
   z-index: 100;
 }
 
+.delete-button {
+  background: linear-gradient(135deg, #ff4444, #cc0000);
+  color: white;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+.delete-button:hover {
+  background: linear-gradient(135deg, #cc0000, #990000);
+  transform: scale(1.05);
+}
+
