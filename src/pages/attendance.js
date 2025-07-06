@@ -14,10 +14,8 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [members, setMembers] = useState([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  const [newName, setNewName] = useState("");
   const [isNewMember, setIsNewMember] = useState(false);
   const [serviceName, setServiceName] = useState("");
-  const [customService, setCustomService] = useState("");
   const [date, setDate] = useState("");
   const [existingServices, setExistingServices] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
@@ -35,20 +33,17 @@ export default function AttendanceForm({ fetchAttendance }) {
       });
   };
 
-  // Set today's date on load
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     setDate(today);
   }, []);
 
-  // Fetch members
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const membershipCollection = collection(db, "membership");
-        const snapshot = await getDocs(membershipCollection);
-        const memberList = snapshot.docs.map((doc) => doc.data());
-        setMembers(memberList);
+        const snapshot = await getDocs(collection(db, "membership"));
+        const list = snapshot.docs.map((doc) => doc.data());
+        setMembers(list);
       } catch (err) {
         console.error("Error fetching members:", err);
       }
@@ -56,15 +51,13 @@ export default function AttendanceForm({ fetchAttendance }) {
     fetchMembers();
   }, []);
 
-  // Fetch existing services
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const attendanceCollection = collection(db, "attendance");
-        const snapshot = await getDocs(attendanceCollection);
-        const services = new Set();
-        snapshot.forEach((doc) => services.add(doc.data().serviceName));
-        setExistingServices([...services]);
+        const snapshot = await getDocs(collection(db, "attendance"));
+        const serviceSet = new Set();
+        snapshot.forEach((doc) => serviceSet.add(doc.data().serviceName));
+        setExistingServices([...serviceSet]);
       } catch (err) {
         console.error("Error fetching services:", err);
       }
@@ -72,30 +65,23 @@ export default function AttendanceForm({ fetchAttendance }) {
     fetchServices();
   }, []);
 
-  // Update category based on selected name
   useEffect(() => {
-    if (name === "Other") {
+    const match = members.find((m) => m.name.toLowerCase() === name.trim().toLowerCase());
+    if (match) {
+      setIsNewMember(false);
+      setCategory(match.category);
+    } else if (name.trim()) {
       setIsNewMember(true);
-      setCategory("");
-      setNewName("");
-    } else {
-      const match = members.find((m) => m.name === name);
-      if (match) {
-        setCategory(match.category);
-        setIsNewMember(false);
-        setNewName("");
-      }
+      setCategory(""); // Let user pick
     }
   }, [name, members]);
 
-  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const finalName = isNewMember ? newName.trim() : name;
+    const finalName = name.trim();
     const finalCategory = category;
-    const finalService =
-      serviceName === "Other" ? customService.trim() : serviceName;
+    const finalService = serviceName.trim();
 
     if (!finalName || !finalCategory || !finalService || !date) {
       alert("Please fill all required fields.");
@@ -103,7 +89,6 @@ export default function AttendanceForm({ fetchAttendance }) {
     }
 
     try {
-      // Prevent duplicate entries
       const attendanceRef = collection(db, "attendance");
       const duplicateQuery = query(
         attendanceRef,
@@ -118,7 +103,6 @@ export default function AttendanceForm({ fetchAttendance }) {
         return;
       }
 
-      // Add new member if needed
       if (isNewMember) {
         await addDoc(collection(db, "membership"), {
           name: finalName,
@@ -126,7 +110,6 @@ export default function AttendanceForm({ fetchAttendance }) {
         });
       }
 
-      // Add attendance record
       await addDoc(collection(db, "attendance"), {
         name: finalName,
         category: finalCategory,
@@ -134,18 +117,14 @@ export default function AttendanceForm({ fetchAttendance }) {
         date,
       });
 
-      // Reset form
       setName("");
-      setNewName("");
       setCategory("");
-      setIsNewMember(false);
       setServiceName("");
-      setCustomService("");
-
-      await fetchAttendance?.();
-
+      setIsNewMember(false);
       setSuccessMessage("✅ Attendance submitted successfully!");
       setTimeout(() => setSuccessMessage(""), 4000);
+
+      await fetchAttendance?.();
     } catch (err) {
       console.error("Error submitting attendance:", err);
       alert(`❌ Submission failed: ${err.message}`);
@@ -154,70 +133,50 @@ export default function AttendanceForm({ fetchAttendance }) {
 
   return (
     <div className="form-container">
-      {successMessage && (
-        <div className="success-message">{successMessage}</div>
-      )}
+      {successMessage && <div className="success-message">{successMessage}</div>}
 
       <form onSubmit={handleSubmit} className="attendance-form">
-        {/* Name Select */}
+        {/* Name Input with Suggestions */}
         <div className="form-group">
           <label htmlFor="name">Name</label>
-          <select
+          <input
+            list="member-options"
             id="name"
-            className="form-select"
+            className="form-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            placeholder="Type or select name"
             required
-          >
-            <option value="">Select Name</option>
+          />
+          <datalist id="member-options">
             {members.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.name}
-              </option>
+              <option key={m.name} value={m.name} />
             ))}
-            <option value="Other">Add New</option>
-          </select>
+          </datalist>
         </div>
 
-        {/* New Member Inputs */}
-        {isNewMember && (
-          <>
-            <div className="form-group">
-              <label htmlFor="new-name">New Name</label>
-              <input
-                id="new-name"
-                className="form-input"
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="new-category">Category</label>
-              <select
-                id="new-category"
-                className="form-select"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                required
-              >
-                <option value="">Select Category</option>
-                <option value="L100">L100</option>
-                <option value="L200">L200</option>
-                <option value="L300">L300</option>
-                <option value="L400">L400</option>
-                <option value="Worker">Worker</option>
-                <option value="Other">Other</option>
-                <option value="New">New</option>
-              </select>
-            </div>
-          </>
-        )}
-
-        {/* Read-only Category for Existing Member */}
-        {!isNewMember && (
+        {/* Category Input */}
+        {isNewMember ? (
+          <div className="form-group">
+            <label htmlFor="new-category">Category</label>
+            <select
+              id="new-category"
+              className="form-select"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+            >
+              <option value="">Select Category</option>
+              <option value="L100">L100</option>
+              <option value="L200">L200</option>
+              <option value="L300">L300</option>
+              <option value="L400">L400</option>
+              <option value="Worker">Worker</option>
+              <option value="Other">Other</option>
+              <option value="New">New</option>
+            </select>
+          </div>
+        ) : (
           <div className="form-group">
             <label htmlFor="category">Category</label>
             <input
@@ -230,40 +189,24 @@ export default function AttendanceForm({ fetchAttendance }) {
           </div>
         )}
 
-        {/* Service Selection */}
+        {/* Service Input with Suggestions */}
         <div className="form-group">
           <label htmlFor="service">Service</label>
-          <select
+          <input
+            list="service-options"
             id="service"
-            className="form-select"
+            className="form-input"
             value={serviceName}
             onChange={(e) => setServiceName(e.target.value)}
+            placeholder="Type or select service"
             required
-          >
-            <option value="">Select Service</option>
+          />
+          <datalist id="service-options">
             {existingServices.map((srv) => (
-              <option key={srv} value={srv}>
-                {srv}
-              </option>
+              <option key={srv} value={srv} />
             ))}
-            <option value="Other">Enter New</option>
-          </select>
+          </datalist>
         </div>
-
-        {/* Custom Service Name */}
-        {serviceName === "Other" && (
-          <div className="form-group">
-            <label htmlFor="custom-service">New Service Name</label>
-            <input
-              id="custom-service"
-              className="form-input"
-              type="text"
-              value={customService}
-              onChange={(e) => setCustomService(e.target.value)}
-              required
-            />
-          </div>
-        )}
 
         {/* Date Picker */}
         <div className="form-group">
@@ -280,11 +223,11 @@ export default function AttendanceForm({ fetchAttendance }) {
 
         {/* Submit Button */}
         <button type="submit" className="submit-btn">
-          <span>Submit Attendance</span>
+          Submit Attendance
         </button>
       </form>
 
-      {/* Navigation & Logout */}
+      {/* Navigation Buttons */}
       <div className="button-group">
         <button onClick={() => navigate("/")} className="nav-button">
           Home

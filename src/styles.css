@@ -80,7 +80,7 @@ button {
 
 /* Input Fields */
 input, select {
-  width: 100%;
+  width: 95%;
   padding: 10px;
   font-size: 14px;
   margin-bottom: 10px;
@@ -409,4 +409,50 @@ select {
 .submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Responsive analytics page layout */
+.analytics-responsive .charts-wrapper {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.chart-block {
+  flex: 1 1 0;
+  min-width: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(67, 97, 238, 0.06);
+  padding: 16px 8px 8px 8px;
+  margin-bottom: 0;
+  height: auto;
+  overflow: visible;
+}
+
+@media (max-width: 900px) {
+  .analytics-responsive .charts-wrapper {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .chart-block {
+    padding: 10px 2px 2px 2px;
+  }
+}
+
+@media (max-width: 600px) {
+  .analytics-responsive .charts-wrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .chart-block {
+    padding: 4px 0 0 0;
+    border-radius: 0;
+    box-shadow: none;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    overflow: visible;
+  }
 }
