@@ -473,13 +473,157 @@
   color: var(--gray-900);
 }
 
-/* Dark Theme Form Groups and Labels */
+/* Dark Theme Form Groups and Labels - Comprehensive Coverage */
 .dark-theme .form-group label {
   color: var(--gray-900);
 }
 
 .dark-theme .form-group select option {
   background: var(--gray-200);
+  color: var(--gray-900);
+}
+
+/* Dark Theme Form Inputs - All Types */
+.dark-theme .form-input {
+  background-color: var(--gray-200);
+  border: 2px solid var(--gray-300);
+  color: var(--gray-900);
+}
+
+.dark-theme .form-input:focus {
+  background-color: var(--gray-100);
+  border-color: var(--primary-500);
+  color: var(--gray-900);
+}
+
+.dark-theme .form-input.readonly {
+  background-color: var(--gray-300);
+  color: var(--gray-700);
+  border-color: var(--gray-400);
+}
+
+.dark-theme .form-select {
+  background-color: var(--gray-200);
+  border: 2px solid var(--gray-300);
+  color: var(--gray-900);
+}
+
+.dark-theme .form-select:focus {
+  background-color: var(--gray-100);
+  border-color: var(--primary-500);
+  color: var(--gray-900);
+}
+
+/* Dark Theme Attendance Form Specific */
+.dark-theme .attendance-form {
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+}
+
+.dark-theme .attendance-form label {
+  color: var(--gray-900);
+}
+
+.dark-theme .attendance-form .form-label {
+  color: var(--gray-900);
+}
+
+/* Dark Theme Attendance Page Specific Elements */
+.dark-theme .attendance-container {
+  background: linear-gradient(135deg, var(--gray-50) 0%, var(--primary-100) 100%);
+}
+
+.dark-theme .form-container {
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+}
+
+/* Dark Theme Datalist and Options */
+.dark-theme datalist option {
+  background: var(--gray-200);
+  color: var(--gray-900);
+}
+
+/* Dark Theme Service and Member Lists */
+.dark-theme .member-list,
+.dark-theme .service-list {
+  background: var(--gray-100);
+  border: 1px solid var(--gray-300);
+}
+
+.dark-theme .member-item,
+.dark-theme .service-item {
+  color: var(--gray-900);
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.dark-theme .member-item:hover,
+.dark-theme .service-item:hover {
+  background: var(--gray-200);
+}
+
+/* Dark Theme Form Validation Messages */
+.dark-theme .form-error {
+  color: var(--error-300);
+}
+
+.dark-theme .form-success {
+  color: var(--success-300);
+}
+
+.dark-theme .form-warning {
+  color: var(--warning-300);
+}
+
+/* Dark Theme - Catch All Label Styles */
+.dark-theme label {
+  color: var(--gray-900) !important;
+}
+
+.dark-theme .attendance-form label {
+  color: var(--gray-900) !important;
+}
+
+.dark-theme .form-group label {
+  color: var(--gray-900) !important;
+}
+
+/* Dark Theme - All Input Types */
+.dark-theme input[type="text"],
+.dark-theme input[type="date"],
+.dark-theme input[type="email"],
+.dark-theme input[type="password"],
+.dark-theme input[type="number"] {
+  background-color: var(--gray-200);
+  border: 2px solid var(--gray-300);
+  color: var(--gray-900);
+}
+
+.dark-theme input[type="text"]:focus,
+.dark-theme input[type="date"]:focus,
+.dark-theme input[type="email"]:focus,
+.dark-theme input[type="password"]:focus,
+.dark-theme input[type="number"]:focus {
+  background-color: var(--gray-100);
+  border-color: var(--primary-500);
+  color: var(--gray-900);
+}
+
+/* Dark Theme - Select Elements */
+.dark-theme select {
+  background-color: var(--gray-200);
+  border: 2px solid var(--gray-300);
+  color: var(--gray-900);
+}
+
+.dark-theme select:focus {
+  background-color: var(--gray-100);
+  border-color: var(--primary-500);
+  color: var(--gray-900);
+}
+
+.dark-theme option {
+  background-color: var(--gray-200);
   color: var(--gray-900);
 }
 
