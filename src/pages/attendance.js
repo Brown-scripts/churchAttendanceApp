@@ -190,11 +190,11 @@ export default function AttendanceForm({ fetchAttendance }) {
               required
             >
               <option value="">Select Category</option>
-              <option value="L100">L100 - New Believers</option>
-              <option value="L200">L200 - Growing Believers</option>
-              <option value="L300">L300 - Maturing Believers</option>
-              <option value="L400">L400 - Multiplying Believers</option>
-              <option value="Worker">Worker - Ministry Staff</option>
+              <option value="L100">L100</option>
+              <option value="L200">L200</option>
+              <option value="L300">L300</option>
+              <option value="L400">L400</option>
+              <option value="Worker">Worker</option>
               <option value="Other">Other</option>
               <option value="New">New Member</option>
             </select>
