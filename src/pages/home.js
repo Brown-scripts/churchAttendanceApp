@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase"; // Make sure this points to your Firebase config
+import { db } from "../firebase";
+import Navigation from "../components/Navigation";
 import logo from "../assets/image.png";
 import generateReport from "../components/reportGenerator";
 
@@ -48,14 +49,7 @@ export default function Home() {
     }
   }, [isModalOpen]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout Error:", error);
-    }
-  };
+
 
   const handleGenerateReportClick = () => {
     setIsModalOpen(true);
@@ -77,54 +71,82 @@ export default function Home() {
   };
 
   return (
-    <div className="home-container">
-      {/* Top Navigation Bar */}
-      <div className="top-bar">
-        {user ? (
-          <button onClick={handleLogout} className="logout-button">Logout</button>
-        ) : (
-          <button onClick={() => navigate("/login")} className="login-button">Login</button>
-        )}
-      </div>
+    <>
+      <Navigation user={user} />
+      <div className="page-content">
+        <div className="home-container">
 
+      {/* Modern Header Section */}
       <div className="header">
-        <img src={logo} alt="Church Logo" className="logo" />
+        <div className="logo-container">
+          <img src={logo} alt="Church Logo" className="logo" />
+          <div className="logo-glow"></div>
+        </div>
         <h1 className="church-name">Universal Radiant Family</h1>
-        <h2 className="church-name">Zone 1</h2>
-        <p className="welcome-text">Welcome to the church attendance and analytics system.</p>
+        <h2 className="church-name zone-name">Zone 1</h2>
+        <p className="welcome-text">
+          Welcome to our comprehensive church attendance and analytics system.
+          Manage your congregation with modern tools and insights.
+        </p>
       </div>
 
-      {/* Buttons Container */}
+      {/* Modern Action Buttons */}
       <div className="buttons-container">
-        <button onClick={() => navigate("/attendance")} className="action-button">Manage Attendance</button>
-        <button onClick={() => navigate("/analytics")} className="action-button">View Analytics</button>
-        <button onClick={handleGenerateReportClick} className="action-button">Generate Report</button>
+        <button onClick={() => navigate("/attendance")} className="action-button">
+          Manage Attendance
+        </button>
+
+        <button onClick={() => navigate("/analytics")} className="action-button">
+          View Analytics
+        </button>
+
+        <button onClick={handleGenerateReportClick} className="action-button">
+          Generate Report
+        </button>
       </div>
 
-      {/* Modal for Service Name Selection */}
+      {/* Modern Modal for Service Name Selection */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2>Select Service Name</h2>
-            <form onSubmit={handleSubmit}>
-              <select
-                value={serviceName}
-                onChange={(e) => setServiceName(e.target.value)}
-                required
-              >
-                <option value="" disabled>Select a service</option>
-                {serviceList.map((name, index) => (
-                  <option key={index} value={name}>{name}</option>
-                ))}
-              </select>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">Generate Report</button>
-                <button type="button" onClick={handleCloseModal} className="cancel-button">Cancel</button>
-              </div>
-            </form>
+        <div className="modal-overlay" onClick={handleCloseModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Generate Report</h2>
+            </div>
+
+            <div className="modal-body">
+              <form onSubmit={handleSubmit} className="modal-form">
+                <div className="form-group">
+                  <label htmlFor="serviceSelect" className="form-label">
+                    Service
+                  </label>
+                  <select
+                    id="serviceSelect"
+                    value={serviceName}
+                    onChange={(e) => setServiceName(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Choose a service...</option>
+                    {serviceList.map((name, index) => (
+                      <option key={index} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="modal-buttons">
+                  <button type="submit" className="submit-button">
+                    Generate
+                  </button>
+                  <button type="button" onClick={handleCloseModal} className="cancel-button">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

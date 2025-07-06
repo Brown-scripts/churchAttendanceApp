@@ -8,7 +8,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import { getAuth, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import Navigation from "../components/Navigation";
 
 export default function AttendanceForm({ fetchAttendance }) {
   const [members, setMembers] = useState([]);
@@ -19,19 +20,20 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [date, setDate] = useState("");
   const [existingServices, setExistingServices] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
+  const [user, setUser] = useState(null);
 
   const navigate = useNavigate();
   const auth = getAuth();
 
-  const handleLogout = () => {
-    signOut(auth)
-      .then(() => {
-        navigate("/login");
-      })
-      .catch((error) => {
-        console.error("Logout failed:", error);
-      });
-  };
+
+
+  // Check user authentication
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, [auth]);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -132,20 +134,39 @@ export default function AttendanceForm({ fetchAttendance }) {
   };
 
   return (
-    <div className="form-container">
-      {successMessage && <div className="success-message">{successMessage}</div>}
+    <>
+      <Navigation user={user} />
+      <div className="page-content">
+        <div className="attendance-container">
+          {/* Page Header */}
+          <div className="page-header">
+            <h1>Attendance Management</h1>
+            <p>Record member attendance for services and events</p>
+          </div>
 
-      <form onSubmit={handleSubmit} className="attendance-form">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="success-banner">
+          <span>{successMessage}</span>
+          <button onClick={() => setSuccessMessage("")} className="success-close">×</button>
+        </div>
+      )}
+
+      {/* Modern Form Container */}
+      <div className="form-container">
+        <form onSubmit={handleSubmit} className="attendance-form">
         {/* Name Input with Suggestions */}
         <div className="form-group">
-          <label htmlFor="name">Name</label>
+          <label htmlFor="name" className="form-label">
+            Name
+          </label>
           <input
             list="member-options"
             id="name"
             className="form-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Type or select name"
+            placeholder="Type or select member name..."
             required
           />
           <datalist id="member-options">
@@ -158,7 +179,9 @@ export default function AttendanceForm({ fetchAttendance }) {
         {/* Category Input */}
         {isNewMember ? (
           <div className="form-group">
-            <label htmlFor="new-category">Category</label>
+            <label htmlFor="new-category" className="form-label">
+              Category
+            </label>
             <select
               id="new-category"
               className="form-select"
@@ -167,21 +190,23 @@ export default function AttendanceForm({ fetchAttendance }) {
               required
             >
               <option value="">Select Category</option>
-              <option value="L100">L100</option>
-              <option value="L200">L200</option>
-              <option value="L300">L300</option>
-              <option value="L400">L400</option>
-              <option value="Worker">Worker</option>
+              <option value="L100">L100 - New Believers</option>
+              <option value="L200">L200 - Growing Believers</option>
+              <option value="L300">L300 - Maturing Believers</option>
+              <option value="L400">L400 - Multiplying Believers</option>
+              <option value="Worker">Worker - Ministry Staff</option>
               <option value="Other">Other</option>
-              <option value="New">New</option>
+              <option value="New">New Member</option>
             </select>
           </div>
         ) : (
           <div className="form-group">
-            <label htmlFor="category">Category</label>
+            <label htmlFor="category" className="form-label">
+              Category
+            </label>
             <input
               id="category"
-              className="form-input"
+              className="form-input readonly"
               type="text"
               value={category}
               readOnly
@@ -210,7 +235,7 @@ export default function AttendanceForm({ fetchAttendance }) {
 
         {/* Date Picker */}
         <div className="form-group">
-          <label htmlFor="date">Date</label>
+          <label htmlFor="date" className="form-label">Date</label>
           <input
             id="date"
             className="form-input"
@@ -227,18 +252,19 @@ export default function AttendanceForm({ fetchAttendance }) {
         </button>
       </form>
 
-      {/* Navigation Buttons */}
-      <div className="button-group">
-        <button onClick={() => navigate("/")} className="nav-button">
-          Home
-        </button>
-        <button onClick={() => navigate("/analytics")} className="nav-button">
+      {/* Quick Actions */}
+      <div className="quick-actions">
+        <button onClick={() => navigate("/analytics")} className="quick-action-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 3v18h18"/>
+            <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
+          </svg>
           View Analytics
         </button>
-        <button onClick={handleLogout} className="logout-button">
-          Logout
-        </button>
       </div>
-    </div>
+      </div>
+        </div>
+      </div>
+    </>
   );
 }

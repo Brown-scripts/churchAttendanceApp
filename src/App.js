@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/home";
 import Attendance from "./pages/attendance";
 import AnalyticsPage from "./pages/analytics";
@@ -10,7 +11,8 @@ import "./styles.css";
 
 export default function App() {
   return (
-    <Router>
+    <ThemeProvider>
+      <Router>
       {/* Navigation Bar (always visible except on login) */}
       <Routes>
         <Route path="/login" element={<Auth />} />
@@ -37,6 +39,7 @@ export default function App() {
           } 
         />
       </Routes>
-    </Router>
+      </Router>
+    </ThemeProvider>
   );
 }

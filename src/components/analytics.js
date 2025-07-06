@@ -7,19 +7,46 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 const AnalyticsComponent = ({ chartData }) => {
   // Handle undefined/null data
   if (!chartData || !chartData.labels || !chartData.datasets) {
-    return <p>Loading analytics data...</p>;
+    return <p style={{ textAlign: "center", color: "#6b7280" }}>Loading analytics data...</p>;
   }
 
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginTop: "20px" }}>
-      <div style={{ backgroundColor: "#f8f8f8", padding: "20px", borderRadius: "10px" }}>
-        <h3 style={{ textAlign: "center" }}>Bar Chart</h3>
-        <Bar data={chartData} />
-      </div>
+  // Chart options for responsiveness
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+      },
+    },
+  };
 
-      <div style={{ backgroundColor: "#f8f8f8", padding: "20px", borderRadius: "10px" }}>
-        <h3 style={{ textAlign: "center" }}>Pie Chart</h3>
-        <Pie data={chartData} />
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+      },
+    },
+  };
+
+  return (
+    <div className="analytics-responsive">
+      <div className="charts-wrapper">
+        <div className="chart-block">
+          <h3>Bar Chart</h3>
+          <div style={{ height: '300px', width: '100%' }}>
+            <Bar data={chartData} options={chartOptions} />
+          </div>
+        </div>
+
+        <div className="chart-block">
+          <h3>Pie Chart</h3>
+          <div style={{ height: '300px', width: '100%' }}>
+            <Pie data={chartData} options={pieOptions} />
+          </div>
+        </div>
       </div>
     </div>
   );
