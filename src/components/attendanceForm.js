@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { addDoc } from "firebase/firestore";
-import { attendanceCollection } from "../firebase";
+import { addDoc, collection } from "firebase/firestore";
+import { db } from "../firebase"; // ✅ Correct import
 
 const AttendanceForm = ({ fetchAttendance }) => {
   const [formData, setFormData] = useState({
@@ -17,18 +17,23 @@ const AttendanceForm = ({ fetchAttendance }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.category || !formData.date || !formData.serviceName) {
+    const { name, category, date, serviceName } = formData;
+
+    if (!name || !category || !date || !serviceName) {
       alert("Please fill out all fields before adding.");
       return;
     }
 
     try {
-      await addDoc(attendanceCollection, formData);
+      const attendanceRef = collection(db, "attendance"); // ✅ Declare inside
+      await addDoc(attendanceRef, formData);
+
       alert("Attendee added successfully!");
       fetchAttendance();
       setFormData({ name: "", category: "", date: "", serviceName: "" });
     } catch (error) {
       console.error("Error adding attendee:", error);
+      alert("Submission failed. Check the console.");
     }
   };
 

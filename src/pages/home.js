@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth"; // 🔹 Firebase Auth
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebase"; // Make sure this points to your Firebase config
 import logo from "../assets/image.png";
-import generateReport from "../components/reportGenerator"; // Import the function
+import generateReport from "../components/reportGenerator";
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [serviceName, setServiceName] = useState("");
-  const [user, setUser] = useState(null); // 🔹 Track logged-in user
+  const [serviceList, setServiceList] = useState([]); // Unique service names
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
-  const auth = getAuth(); // 🔹 Get Firebase Auth instance
+  const auth = getAuth();
 
-  // 🔹 Check Authentication State
+  // Check user authentication
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -20,7 +23,31 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  // 🔹 Handle Logout
+  // Fetch unique service names when modal opens
+  useEffect(() => {
+    const fetchUniqueServiceNames = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "attendance"));
+        const namesSet = new Set();
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.serviceName) {
+            namesSet.add(data.serviceName.trim());
+          }
+        });
+
+        setServiceList(Array.from(namesSet));
+      } catch (error) {
+        console.error("Error fetching service names:", error);
+      }
+    };
+
+    if (isModalOpen) {
+      fetchUniqueServiceNames();
+    }
+  }, [isModalOpen]);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -45,7 +72,7 @@ export default function Home() {
       generateReport(serviceName);
       handleCloseModal();
     } else {
-      alert("Please enter a service name.");
+      alert("Please select a service name.");
     }
   };
 
@@ -54,9 +81,9 @@ export default function Home() {
       {/* Top Navigation Bar */}
       <div className="top-bar">
         {user ? (
-          <button onClick={handleLogout} className="logout-button">Logout</button> // 🔹 Show Logout when logged in
+          <button onClick={handleLogout} className="logout-button">Logout</button>
         ) : (
-          <button onClick={() => navigate("/login")} className="login-button">Login</button> // 🔹 Show Login when not logged in
+          <button onClick={() => navigate("/login")} className="login-button">Login</button>
         )}
       </div>
 
@@ -74,19 +101,22 @@ export default function Home() {
         <button onClick={handleGenerateReportClick} className="action-button">Generate Report</button>
       </div>
 
-      {/* Modal for Service Name Input */}
+      {/* Modal for Service Name Selection */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h2>Enter Service Name</h2>
+            <h2>Select Service Name</h2>
             <form onSubmit={handleSubmit}>
-              <input
-                type="text"
-                placeholder="Service Name"
+              <select
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
                 required
-              />
+              >
+                <option value="" disabled>Select a service</option>
+                {serviceList.map((name, index) => (
+                  <option key={index} value={name}>{name}</option>
+                ))}
+              </select>
               <div className="modal-buttons">
                 <button type="submit" className="submit-button">Generate Report</button>
                 <button type="button" onClick={handleCloseModal} className="cancel-button">Cancel</button>

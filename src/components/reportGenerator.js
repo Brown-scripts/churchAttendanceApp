@@ -1,5 +1,5 @@
 import { saveAs } from "file-saver";
-import { db, attendanceCollection } from "../firebase";
+import { attendanceCollection } from "../firebase";
 import { getDocs } from "firebase/firestore";
 import { 
   Document, 
@@ -14,7 +14,15 @@ import {
 } from "docx";
 
 // Categories for the report
-const categories = ["L100s", "Continuing Students", "L400s", "Workers", "Others", "New"];
+const categories = [
+  "L100",
+  "L200",
+  "L300",
+  "L400",
+  "Worker",
+  "Other",
+  "New",
+];
 
 const generateReport = async (serviceName) => {
   // Fetch all attendance data

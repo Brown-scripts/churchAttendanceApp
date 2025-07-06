@@ -34,7 +34,6 @@ body {
   margin-top: 15px;
 }
 
-/* General Button Styling */
 button {
   font-size: 14px;
   font-weight: bold;
@@ -53,7 +52,6 @@ button {
   background: linear-gradient(135deg, #1e3c72, #2a5298);
   color: white;
 }
-
 .nav-button:hover {
   background: linear-gradient(135deg, #163162, #20468d);
   transform: scale(1.04);
@@ -64,7 +62,6 @@ button {
   background: linear-gradient(135deg, #28a745, #218838);
   color: white;
 }
-
 .report-button:hover {
   background: linear-gradient(135deg, #218838, #1c7430);
   transform: scale(1.04);
@@ -74,18 +71,15 @@ button {
 .logout-button {
   background: linear-gradient(135deg, #e74c3c, #c0392b);
   color: white;
-  border-radius: 6px;
   padding: 10px 16px;
 }
-
 .logout-button:hover {
   background: linear-gradient(135deg, #c0392b, #a93226);
   transform: scale(1.04);
 }
 
 /* Input Fields */
-input,
-select {
+input, select {
   width: 100%;
   padding: 10px;
   font-size: 14px;
@@ -95,15 +89,13 @@ select {
   background-color: #f9f9f9;
   transition: border 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
 }
-
-input:focus,
-select:focus {
+input:focus, select:focus {
   border-color: #2a5298;
   box-shadow: 0px 0px 6px rgba(42, 82, 152, 0.3);
   outline: none;
 }
 
-/* Form */
+/* Attendance Form */
 .attendance-form {
   display: flex;
   flex-direction: column;
@@ -118,13 +110,9 @@ select:focus {
 .add-attendee-button {
   background: linear-gradient(135deg, #ff7e5f, #ff3f34);
   color: white;
-  font-size: 14px;
   padding: 12px 18px;
   border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.3s ease-in-out;
 }
-
 .add-attendee-button:hover {
   background: linear-gradient(135deg, #ff3f34, #e82c1e);
   transform: scale(1.04);
@@ -132,39 +120,25 @@ select:focus {
 
 /* Service List */
 .service-list {
-  margin-top: 15px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
+  margin-top: 15px;
 }
-
 .service-button {
   background: linear-gradient(135deg, #007bff, #0056b3);
   color: white;
   padding: 10px 16px;
-  text-align: center;
   border-radius: 6px;
-  text-decoration: none;
   font-weight: bold;
-  transition: background 0.3s ease-in-out;
 }
-
 .service-button:hover {
   background: linear-gradient(135deg, #0056b3, #003d82);
   transform: scale(1.04);
 }
 
-/* Chart Section */
-.chart-container {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.08);
-  margin-top: 15px;
-}
-
-/* Home Page Styles */
+/* Home Page */
 .home-container {
   display: flex;
   flex-direction: column;
@@ -172,54 +146,36 @@ select:focus {
   justify-content: center;
   min-height: 100vh;
   background-color: #fafafa;
-  padding: 15px;
   text-align: center;
 }
-
-.header {
-  margin-bottom: 30px;
-}
-
 .logo {
   width: 90px;
-  height: auto;
   margin-bottom: 15px;
 }
-
 .church-name {
   font-size: 2rem;
   font-weight: bold;
   color: #3f51b5;
-  margin-bottom: 8px;
 }
-
 .welcome-text {
-  font-size: 1rem;
   color: #333;
   margin-bottom: 30px;
 }
-
-/* Button Layout */
 .buttons-container {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
   max-width: 350px;
+  width: 100%;
 }
-
 .action-button {
   padding: 12px;
   font-size: 1rem;
   font-weight: bold;
   background: linear-gradient(135deg, #00796b, #004d40);
   color: white;
-  border: none;
   border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease-in-out;
 }
-
 .action-button:hover {
   background: linear-gradient(135deg, #004d40, #002d25);
   transform: scale(1.04);
@@ -228,59 +184,48 @@ select:focus {
 /* Modal */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
 }
-
 .modal-content {
-  background-color: white;
+  background: white;
   padding: 20px;
   border-radius: 6px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  width: 280px;
   text-align: center;
+  width: 280px;
 }
-
-.modal-content h2 {
-  margin-bottom: 8px;
-}
-
-.modal-content input {
-  padding: 6px;
-  margin-bottom: 15px;
-  width: 100%;
-  border: 1.5px solid #ccc;
-  border-radius: 4px;
-}
-
-/* Modal Buttons */
 .modal-buttons button {
   padding: 8px 16px;
   margin: 5px;
-  border: none;
-  cursor: pointer;
   border-radius: 4px;
 }
-
 .submit-button {
   background: linear-gradient(135deg, #4CAF50, #388E3C);
   color: white;
 }
-
 .cancel-button {
   background: linear-gradient(135deg, #f44336, #d32f2f);
   color: white;
 }
-
 .submit-button:hover,
 .cancel-button:hover {
   opacity: 0.85;
+}
+
+/* Dropdown Styling */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #f9f9f9;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23667eea' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
 }
 
 /* Top Bar */
@@ -290,18 +235,178 @@ select:focus {
   right: 15px;
   z-index: 100;
 }
-
 .delete-button {
   background: linear-gradient(135deg, #ff4444, #cc0000);
   color: white;
   padding: 12px 18px;
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease-in-out;
 }
-
 .delete-button:hover {
   background: linear-gradient(135deg, #cc0000, #990000);
   transform: scale(1.05);
 }
 
+/* Attendance Container */
+.attendance-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 20px;
+}
+
+/* Spinner */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  color: #667eea;
+}
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e3f2fd;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Attendance Header */
+.attendance-header {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+}
+.title-section h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+.title-section p {
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 25px;
+  border-radius: 15px;
+  display: flex;
+  gap: 20px;
+}
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+.stat-icon {
+  font-size: 2.5rem;
+}
+.stat-info h3 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* Error Banner */
+.error-banner {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.error-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  background: white;
+  border-radius: 15px;
+  padding: 8px;
+  gap: 8px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 15px 20px;
+  border: none;
+  font-weight: 600;
+  color: #7f8c8d;
+}
+.tab-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Tab Content */
+.tab-content {
+  background: white;
+  border-radius: 15px;
+  padding: 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Form & Filters */
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.filters-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 25px;
+  background: #f8f9fa;
+  border-radius: 15px;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.clear-filters-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border-radius: 8px;
+}
+.clear-filters-btn:hover {
+  background: linear-gradient(135deg, #495057, #343a40);
+}
+
+/* Submit Button */
+.submit-btn {
+  padding: 15px 30px;
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.submit-btn:hover {
+  background: linear-gradient(135deg, #20c997, #17a2b8);
+  transform: translateY(-2px);
+}
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

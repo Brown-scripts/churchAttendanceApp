@@ -21,6 +21,7 @@ const db = getFirestore(app);
 
 // ✅ Define the collection reference
 const attendanceCollection = collection(db, "attendance");
+export const membershipCollection = collection(db, "membership");
 
 // ✅ Initialize Firebase Authentication
 const auth = getAuth(app);
