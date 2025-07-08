@@ -9,11 +9,15 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "../firebase";
+import Navigation from "../components/Navigation";
 import AnalyticsComponent from "../components/analytics";
 
 export default function DetailedAnalytics() {
   const { serviceName } = useParams();
   const [serviceData, setServiceData] = useState(null);
+  const [user] = useAuthState(auth);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,14 +85,39 @@ export default function DetailedAnalytics() {
     "#" + Math.floor(Math.random() * 16777215).toString(16);
 
   if (!serviceData) {
-    return <h3 style={{ textAlign: "center" }}>Loading Detailed Analytics...</h3>;
+    return (
+      <>
+        <Navigation user={user} />
+        <div className="page-content">
+          <div className="analytics-container">
+            <div className="loading-spinner">
+              <div className="spinner"></div>
+              <p>Loading Detailed Analytics...</p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
   }
 
   if (Object.keys(serviceData).length === 0) {
     return (
-      <h3 style={{ textAlign: "center" }}>
-        No Data Available for "{serviceName}"
-      </h3>
+      <>
+        <Navigation user={user} />
+        <div className="page-content">
+          <div className="analytics-container">
+            <div className="page-header-clean">
+              <h1>No Data Available</h1>
+              <p>No attendance data found for "{serviceName}"</p>
+            </div>
+            <div className="button-group">
+              <button onClick={() => navigate("/analytics")} className="btn-primary">
+                Back to Analytics
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -105,19 +134,51 @@ export default function DetailedAnalytics() {
   };
 
   return (
-    <div className="container">
-      <h2 className="title">📊 {serviceName} - Detailed Analytics</h2>
-      <AnalyticsComponent chartData={chartData} />
+    <>
+      <Navigation user={user} />
+      <div className="page-content">
+        <div className="analytics-container">
+          {/* Page Header */}
+          <div className="page-header-clean">
+            <h1>📊 {serviceName} Analytics</h1>
+            <p>Detailed attendance breakdown for {serviceName}</p>
+          </div>
 
-      {/* Navigation Buttons */}
-      <div className="button-group">
-        <button onClick={() => navigate("/analytics")} className="nav-button">
-          Back to Overview
-        </button>
-        <button onClick={handleDeleteService} className="delete-button">
-          Delete Service
-        </button>
+          {/* Chart Section */}
+          <div className="chart-container">
+            <AnalyticsComponent chartData={chartData} />
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="button-group" style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center', marginTop: 'var(--space-6)' }}>
+            <button onClick={() => navigate("/analytics")} className="btn-secondary">
+              Back to Analytics
+            </button>
+            <button onClick={handleDeleteService} className="btn-danger">
+              Delete Service
+            </button>
+          </div>
+
+          {/* Floating Quick Access Menu */}
+          <div className="floating-quick-menu">
+            <div className="quick-menu-item" onClick={() => navigate('/')} title="Home">
+              <span className="menu-icon">🏠</span>
+            </div>
+            <div className="quick-menu-item" onClick={() => navigate('/attendance')} title="Add Attendance">
+              <span className="menu-icon">➕</span>
+            </div>
+            <div className="quick-menu-item" onClick={() => navigate('/analytics')} title="Analytics">
+              <span className="menu-icon">📊</span>
+            </div>
+            <div className="quick-menu-item" onClick={() => navigate('/membership')} title="Membership">
+              <span className="menu-icon">👥</span>
+            </div>
+            <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
+              <span className="menu-icon">📋</span>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

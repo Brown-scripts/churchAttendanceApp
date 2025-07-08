@@ -5,6 +5,8 @@ import Home from "./pages/home";
 import Attendance from "./pages/attendance";
 import AnalyticsPage from "./pages/analytics";
 import DetailedAnalytics from "./pages/detailedAnalytics";
+import Membership from "./pages/membership";
+import Logs from "./pages/logs";
 import Auth from "./pages/login";
 import ProtectedRoute from "./components/protectedRoute";
 import "./styles.css";
@@ -30,9 +32,17 @@ export default function App() {
                   path="/analytics" 
                   element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} 
                 />
-                <Route 
-                  path="/analytics/:serviceName" 
-                  element={<ProtectedRoute><DetailedAnalytics /></ProtectedRoute>} 
+                <Route
+                  path="/analytics/:serviceName"
+                  element={<ProtectedRoute><DetailedAnalytics /></ProtectedRoute>}
+                />
+                <Route
+                  path="/membership"
+                  element={<ProtectedRoute><Membership /></ProtectedRoute>}
+                />
+                <Route
+                  path="/logs"
+                  element={<ProtectedRoute><Logs /></ProtectedRoute>}
                 />
               </Routes>
             </>

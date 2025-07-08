@@ -5,6 +5,7 @@ import {
   getDocs,
   query,
   where,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -91,17 +92,24 @@ export default function AttendanceForm({ fetchAttendance }) {
     }
 
     try {
+      // Check for case-insensitive duplicate attendance
       const attendanceRef = collection(db, "attendance");
       const duplicateQuery = query(
         attendanceRef,
-        where("name", "==", finalName),
         where("serviceName", "==", finalService),
         where("date", "==", date)
       );
 
       const duplicateSnap = await getDocs(duplicateQuery);
-      if (!duplicateSnap.empty) {
-        alert("⚠️ Attendance already recorded for this member, service, and date.");
+      const normalizedName = finalName.toLowerCase().trim();
+
+      const isDuplicate = duplicateSnap.docs.some(doc => {
+        const existingName = doc.data().name.toLowerCase().trim();
+        return existingName === normalizedName;
+      });
+
+      if (isDuplicate) {
+        alert(`Attendance already recorded for "${finalName}" in ${finalService} service on ${date}.`);
         return;
       }
 
@@ -117,13 +125,25 @@ export default function AttendanceForm({ fetchAttendance }) {
         category: finalCategory,
         serviceName: finalService,
         date,
+        timestamp: serverTimestamp(),
+      });
+
+      // Log the attendance addition
+      await addDoc(collection(db, "logs"), {
+        action: "Attendance Added",
+        details: `Added attendance for ${finalName} in ${finalService} service on ${date}`,
+        user: "System", // You can get the current user if needed
+        timestamp: serverTimestamp(),
+        memberName: finalName,
+        serviceName: finalService,
+        date: date
       });
 
       setName("");
       setCategory("");
       setServiceName("");
       setIsNewMember(false);
-      setSuccessMessage("✅ Attendance submitted successfully!");
+      setSuccessMessage("Attendance submitted successfully!");
       setTimeout(() => setSuccessMessage(""), 4000);
 
       await fetchAttendance?.();
@@ -139,7 +159,7 @@ export default function AttendanceForm({ fetchAttendance }) {
       <div className="page-content">
         <div className="attendance-container">
           {/* Page Header */}
-          <div className="page-header">
+          <div className="page-header-clean">
             <h1>Attendance Management</h1>
             <p>Record member attendance for services and events</p>
           </div>
@@ -252,16 +272,24 @@ export default function AttendanceForm({ fetchAttendance }) {
         </button>
       </form>
 
-      {/* Quick Actions */}
-      <div className="quick-actions">
-        <button onClick={() => navigate("/analytics")} className="quick-action-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 3v18h18"/>
-            <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
-          </svg>
-          View Analytics
-        </button>
+      
+      {/* Floating Quick Access Menu */}
+      <div className="floating-quick-menu">
+        <div className="quick-menu-item" onClick={() => navigate('/')} title="Home">
+          <span className="menu-icon">🏠</span>
+        </div>
+        <div className="quick-menu-item" onClick={() => navigate('/analytics')} title="Analytics">
+          <span className="menu-icon">📊</span>
+        </div>
+        <div className="quick-menu-item" onClick={() => navigate('/membership')} title="Membership">
+          <span className="menu-icon">👥</span>
+        </div>
+        <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
+          <span className="menu-icon">📋</span>
+        </div>
+        
       </div>
+
       </div>
         </div>
       </div>

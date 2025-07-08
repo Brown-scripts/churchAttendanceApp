@@ -10,6 +10,7 @@ import generateReport from "../components/reportGenerator";
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [serviceName, setServiceName] = useState("");
+  const [reportFormat, setReportFormat] = useState("word");
   const [serviceList, setServiceList] = useState([]); // Unique service names
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ export default function Home() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (serviceName) {
-      generateReport(serviceName);
+      generateReport(serviceName, reportFormat);
       handleCloseModal();
     } else {
       alert("Please select a service name.");
@@ -129,6 +130,20 @@ export default function Home() {
                     {serviceList.map((name, index) => (
                       <option key={index} value={name}>{name}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="reportFormat" className="form-label">
+                    Report Format
+                  </label>
+                  <select
+                    id="reportFormat"
+                    value={reportFormat}
+                    onChange={(e) => setReportFormat(e.target.value)}
+                  >
+                    <option value="word">Word Document (.docx)</option>
+                    <option value="csv">CSV Spreadsheet (.csv)</option>
                   </select>
                 </div>
 

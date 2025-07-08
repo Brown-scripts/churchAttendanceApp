@@ -67,12 +67,30 @@ const Navigation = ({ user }) => {
             </a>
           </li>
           <li className="navbar-nav-item">
-            <a 
-              href="/analytics" 
+            <a
+              href="/analytics"
               className={`navbar-nav-link ${isActive('/analytics') ? 'active' : ''}`}
               onClick={(e) => { e.preventDefault(); handleNavigation('/analytics'); }}
             >
               Analytics
+            </a>
+          </li>
+          <li className="navbar-nav-item">
+            <a
+              href="/membership"
+              className={`navbar-nav-link ${isActive('/membership') ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); handleNavigation('/membership'); }}
+            >
+              Membership
+            </a>
+          </li>
+          <li className="navbar-nav-item">
+            <a
+              href="/logs"
+              className={`navbar-nav-link ${isActive('/logs') ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); handleNavigation('/logs'); }}
+            >
+              Audit Logs
             </a>
           </li>
         </ul>
@@ -144,12 +162,26 @@ const Navigation = ({ user }) => {
           >
             Attendance
           </a>
-          <a 
-            href="/analytics" 
+          <a
+            href="/analytics"
             className={`navbar-nav-link ${isActive('/analytics') ? 'active' : ''}`}
             onClick={(e) => { e.preventDefault(); handleNavigation('/analytics'); }}
           >
             Analytics
+          </a>
+          <a
+            href="/membership"
+            className={`navbar-nav-link ${isActive('/membership') ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); handleNavigation('/membership'); }}
+          >
+            Membership
+          </a>
+          <a
+            href="/logs"
+            className={`navbar-nav-link ${isActive('/logs') ? 'active' : ''}`}
+            onClick={(e) => { e.preventDefault(); handleNavigation('/logs'); }}
+          >
+            Audit Logs
           </a>
         </div>
         

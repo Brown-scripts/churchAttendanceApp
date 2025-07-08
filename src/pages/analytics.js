@@ -58,14 +58,34 @@ export default function Analytics() {
     return <h3 style={{ textAlign: "center" }}>Loading Analytics...</h3>;
   }
 
-  // 🔹 Chart Data
+  // 🔹 Chart Data - Vibrant Professional Color Scheme
+  const vibrantColors = [
+    "#3b82f6", // Bright Blue
+    "#10b981", // Emerald Green
+    "#f59e0b", // Amber
+    "#ef4444", // Red
+    "#8b5cf6", // Purple
+    "#06b6d4", // Cyan
+    "#f97316", // Orange
+    "#84cc16", // Lime
+    "#ec4899", // Pink
+    "#6366f1", // Indigo
+    "#14b8a6", // Teal
+    "#f43f5e", // Rose
+  ];
+
   const chartData = {
     labels: services,
     datasets: [
       {
         label: "Total Attendance",
         data: services.map((service) => attendanceData[service]?.total || 0),
-        backgroundColor: ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#E91E63", "#607D8B"],
+        backgroundColor: vibrantColors.slice(0, services.length),
+        borderColor: vibrantColors.slice(0, services.length),
+        borderWidth: 2,
+        hoverBackgroundColor: vibrantColors.slice(0, services.length).map(color => color + '80'), // Add transparency on hover
+        hoverBorderColor: vibrantColors.slice(0, services.length),
+        hoverBorderWidth: 3,
       },
     ],
   };
@@ -76,7 +96,7 @@ export default function Analytics() {
       <div className="page-content">
         <div className="analytics-container">
           {/* Page Header */}
-          <div className="page-header">
+          <div className="page-header-clean">
             <h1>Attendance Analytics</h1>
             <p>View attendance trends and insights across all services</p>
           </div>
@@ -102,20 +122,24 @@ export default function Analytics() {
           ))}
         </div>
       </div>
+      
 
-      {/* Navigation */}
-      {/* Quick Actions */}
-      <div className="quick-actions">
-        <button onClick={() => navigate("/attendance")} className="quick-action-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="8.5" cy="7" r="4"/>
-            <line x1="20" y1="8" x2="20" y2="14"/>
-            <line x1="23" y1="11" x2="17" y2="11"/>
-          </svg>
-          Manage Attendance
-        </button>
+      {/* Floating Quick Access Menu */}
+      <div className="floating-quick-menu">
+        <div className="quick-menu-item" onClick={() => navigate('/')} title="Home">
+          <span className="menu-icon">🏠</span>
+        </div>
+        <div className="quick-menu-item" onClick={() => navigate('/attendance')} title="Add Attendance">
+          <span className="menu-icon">➕</span>
+        </div>
+        <div className="quick-menu-item" onClick={() => navigate('/membership')} title="Membership">
+          <span className="menu-icon">👥</span>
+        </div>
+        <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
+          <span className="menu-icon">📋</span>
+        </div>
       </div>
+
         </div>
       </div>
     </>

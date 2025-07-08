@@ -10,13 +10,55 @@ const AnalyticsComponent = ({ chartData }) => {
     return <p style={{ textAlign: "center", color: "#6b7280" }}>Loading analytics data...</p>;
   }
 
-  // Chart options for responsiveness
+  // Enhanced Chart options for vibrant, professional appearance
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'bottom',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          font: {
+            size: 12,
+            weight: '500',
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        cornerRadius: 8,
+        displayColors: true,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.1)',
+        },
+        ticks: {
+          font: {
+            size: 11,
+            weight: '500',
+          },
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: {
+            size: 11,
+            weight: '500',
+          },
+        },
       },
     },
   };
@@ -27,6 +69,23 @@ const AnalyticsComponent = ({ chartData }) => {
     plugins: {
       legend: {
         position: 'bottom',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          font: {
+            size: 12,
+            weight: '500',
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        cornerRadius: 8,
+        displayColors: true,
       },
     },
   };
