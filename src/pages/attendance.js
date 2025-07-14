@@ -10,6 +10,8 @@ import {
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useAuth } from "../context/authContext";
+import { AdminOnly } from "../components/RoleBasedAccess";
 import Navigation from "../components/Navigation";
 
 export default function AttendanceForm({ fetchAttendance }) {
@@ -22,6 +24,7 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [existingServices, setExistingServices] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [user, setUser] = useState(null);
+  const { isAdmin } = useAuth();
 
   const navigate = useNavigate();
   const auth = getAuth();
@@ -73,11 +76,16 @@ export default function AttendanceForm({ fetchAttendance }) {
     if (match) {
       setIsNewMember(false);
       setCategory(match.category);
-    } else if (name.trim()) {
+    } else if (name.trim() && isAdmin()) {
+      // Only admins can add new members
       setIsNewMember(true);
-      setCategory(""); // Let user pick
+      setCategory(""); // Let admin pick
+    } else if (name.trim() && !isAdmin()) {
+      // Non-admins can only select existing members
+      setIsNewMember(false);
+      setCategory("");
     }
-  }, [name, members]);
+  }, [name, members, isAdmin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,11 +121,15 @@ export default function AttendanceForm({ fetchAttendance }) {
         return;
       }
 
-      if (isNewMember) {
+      // Only admins can add new members
+      if (isNewMember && isAdmin()) {
         await addDoc(collection(db, "membership"), {
           name: finalName,
           category: finalCategory,
         });
+      } else if (isNewMember && !isAdmin()) {
+        alert("Only administrators can add new members. Please select from existing members.");
+        return;
       }
 
       await addDoc(collection(db, "attendance"), {
@@ -175,20 +187,44 @@ export default function AttendanceForm({ fetchAttendance }) {
       {/* Modern Form Container */}
       <div className="form-container">
         <form onSubmit={handleSubmit} className="attendance-form">
+        {/* Role-based access notice */}
+        {!isAdmin() && (
+          <div className="info-banner">
+            <span>ℹ️ You can only select from existing members. Contact an admin to add new members.</span>
+          </div>
+        )}
+
         {/* Name Input with Suggestions */}
         <div className="form-group">
           <label htmlFor="name" className="form-label">
-            Name
+            Name {!isAdmin() && <span className="text-muted">(Select from existing members only)</span>}
           </label>
-          <input
-            list="member-options"
-            id="name"
-            className="form-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Type or select member name..."
-            required
-          />
+          {isAdmin() ? (
+            <input
+              list="member-options"
+              id="name"
+              className="form-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Type or select member name..."
+              required
+            />
+          ) : (
+            <select
+              id="name"
+              className="form-select"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            >
+              <option value="">Select a member...</option>
+              {members.map((m) => (
+                <option key={m.name} value={m.name}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          )}
           <datalist id="member-options">
             {members.map((m) => (
               <option key={m.name} value={m.name} />
@@ -197,28 +233,30 @@ export default function AttendanceForm({ fetchAttendance }) {
         </div>
 
         {/* Category Input */}
-        {isNewMember ? (
-          <div className="form-group">
-            <label htmlFor="new-category" className="form-label">
-              Category
-            </label>
-            <select
-              id="new-category"
-              className="form-select"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              required
-            >
-              <option value="">Select Category</option>
-              <option value="L100">L100</option>
-              <option value="L200">L200</option>
-              <option value="L300">L300</option>
-              <option value="L400">L400</option>
-              <option value="Worker">Worker</option>
-              <option value="Other">Other</option>
-              <option value="New">New Member</option>
-            </select>
-          </div>
+        {isNewMember && isAdmin() ? (
+          <AdminOnly>
+            <div className="form-group">
+              <label htmlFor="new-category" className="form-label">
+                Category <span className="text-muted">(Admin: New Member)</span>
+              </label>
+              <select
+                id="new-category"
+                className="form-select"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+              >
+                <option value="">Select Category</option>
+                <option value="L100">L100</option>
+                <option value="L200">L200</option>
+                <option value="L300">L300</option>
+                <option value="L400">L400</option>
+                <option value="Worker">Worker</option>
+                <option value="Other">Other</option>
+                <option value="New">New Member</option>
+              </select>
+            </div>
+          </AdminOnly>
         ) : (
           <div className="form-group">
             <label htmlFor="category" className="form-label">
@@ -230,6 +268,7 @@ export default function AttendanceForm({ fetchAttendance }) {
               type="text"
               value={category}
               readOnly
+              placeholder="Category will auto-fill"
             />
           </div>
         )}
@@ -287,7 +326,11 @@ export default function AttendanceForm({ fetchAttendance }) {
         <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
           <span className="menu-icon">📋</span>
         </div>
-        
+        <AdminOnly>
+          <div className="quick-menu-item" onClick={() => navigate('/admin')} title="Admin Dashboard">
+            <span className="menu-icon">⚙️</span>
+          </div>
+        </AdminOnly>
       </div>
 
       </div>

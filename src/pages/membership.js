@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, query } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/authContext';
+import { AdminOnly } from '../components/RoleBasedAccess';
 import Navigation from '../components/Navigation';
 
 const Membership = () => {
   const [user] = useAuthState(auth);
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,11 +31,7 @@ const Membership = () => {
     return name.trim().toLowerCase();
   };
 
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     try {
       setLoading(true);
       const attendanceRef = collection(db, 'membership');
@@ -63,7 +62,11 @@ const Membership = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
 
   const handleCategoryChange = async (member, category) => {
     if (!category) {
@@ -344,6 +347,13 @@ const Membership = () => {
           <p>Manage church members and their categories</p>
         </div>
 
+        {/* Role-based access notice */}
+        {!isAdmin() && (
+          <div className="info-banner">
+            <span>ℹ️ You have view-only access. Contact an admin to edit member information or perform bulk updates.</span>
+          </div>
+        )}
+
         {/* Controls Card */}
         <div className="controls-card">
           <div className="controls-header">
@@ -399,8 +409,9 @@ const Membership = () => {
           </div>
         </div>
 
-        {/* Bulk Update Card */}
-        <div className="bulk-update-card">
+        {/* Bulk Update Card - Admin Only */}
+        <AdminOnly>
+          <div className="bulk-update-card">
           <div className="bulk-header">
             <h3>Bulk Category Update</h3>
             <span className="bulk-info">Update all members from one category to another</span>
@@ -451,7 +462,8 @@ const Membership = () => {
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </AdminOnly>
 
         {/* Statistics Card */}
         <div className="stats-card">
@@ -525,16 +537,18 @@ const Membership = () => {
                   ) : (
                     <div className="name-display">
                       <span>{member.name}</span>
-                      <button
-                        onClick={() => {
-                          setEditingName(member.name);
-                          setNewName(member.name);
-                        }}
-                        className="edit-name-btn"
-                        title="Edit name"
-                      >
-                        ✏️
-                      </button>
+                      <AdminOnly>
+                        <button
+                          onClick={() => {
+                            setEditingName(member.name);
+                            setNewName(member.name);
+                          }}
+                          className="edit-name-btn"
+                          title="Edit name (Admin only)"
+                        >
+                          ✏️
+                        </button>
+                      </AdminOnly>
                     </div>
                   )}
                 </td>
@@ -576,15 +590,20 @@ const Membership = () => {
                 </td>
                 <td className="member-actions">
                   {editingMember !== member.name && (
-                    <button
-                      onClick={() => {
-                        setEditingMember(member.name);
-                        setNewCategory(member.category);
-                      }}
-                      className="btn-edit"
-                    >
-                      Edit
-                    </button>
+                    <AdminOnly>
+                      <button
+                        onClick={() => {
+                          setEditingMember(member.name);
+                          setNewCategory(member.category);
+                        }}
+                        className="btn-edit"
+                      >
+                        Edit
+                      </button>
+                    </AdminOnly>
+                  )}
+                  {!isAdmin() && editingMember !== member.name && (
+                    <span className="text-muted">View Only</span>
                   )}
                 </td>
               </tr>

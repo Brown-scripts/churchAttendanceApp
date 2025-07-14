@@ -3,6 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { AdminOnly } from "../components/RoleBasedAccess";
 import Navigation from "../components/Navigation";
 import AnalyticsComponent from "../components/analytics";
 
@@ -138,6 +139,11 @@ export default function Analytics() {
         <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
           <span className="menu-icon">📋</span>
         </div>
+        <AdminOnly>
+          <div className="quick-menu-item" onClick={() => navigate('/admin')} title="Admin Dashboard">
+            <span className="menu-icon">⚙️</span>
+          </div>
+        </AdminOnly>
       </div>
 
         </div>

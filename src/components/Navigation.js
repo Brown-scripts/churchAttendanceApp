@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getAuth, signOut } from 'firebase/auth';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../context/authContext';
+import { AdminOnly } from '../components/RoleBasedAccess';
 import logo from '../assets/image.png';
 
 const Navigation = ({ user }) => {
@@ -10,6 +12,7 @@ const Navigation = ({ user }) => {
   const location = useLocation();
   const auth = getAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const { isAdmin } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -84,6 +87,17 @@ const Navigation = ({ user }) => {
               Membership
             </a>
           </li>
+          <AdminOnly>
+            <li className="navbar-nav-item">
+              <a
+                href="/admin"
+                className={`navbar-nav-link ${isActive('/admin') ? 'active' : ''}`}
+                onClick={(e) => { e.preventDefault(); handleNavigation('/admin'); }}
+              >
+                Admin Dashboard
+              </a>
+            </li>
+          </AdminOnly>
           <li className="navbar-nav-item">
             <a
               href="/logs"
@@ -176,6 +190,15 @@ const Navigation = ({ user }) => {
           >
             Membership
           </a>
+          <AdminOnly>
+            <a
+              href="/admin"
+              className={`navbar-nav-link ${isActive('/admin') ? 'active' : ''}`}
+              onClick={(e) => { e.preventDefault(); handleNavigation('/admin'); }}
+            >
+              Admin Dashboard
+            </a>
+          </AdminOnly>
           <a
             href="/logs"
             className={`navbar-nav-link ${isActive('/logs') ? 'active' : ''}`}
