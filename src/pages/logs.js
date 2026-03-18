@@ -5,6 +5,20 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 
+const ACTION_CONFIG = {
+  'Attendance Added':    { color: 'action-success',  label: 'Added'       },
+  'Category Change':     { color: 'action-warning',  label: 'Category'    },
+  'Bulk Category Update':{ color: 'action-warning',  label: 'Bulk Cat.'   },
+  'Name Change':         { color: 'action-info',     label: 'Renamed'     },
+  'User Added':          { color: 'action-primary',  label: 'User Added'  },
+  'User Removed':        { color: 'action-secondary',label: 'User Removed'},
+  'User Role Updated':   { color: 'action-info',     label: 'Role Update' },
+  'Data Export':         { color: 'action-primary',  label: 'Exported'    },
+};
+
+const getActionConfig = (action) =>
+  ACTION_CONFIG[action] || { color: 'action-default', label: action };
+
 const Logs = () => {
   const [user] = useAuthState(auth);
   const navigate = useNavigate();
@@ -16,68 +30,53 @@ const Logs = () => {
   const [dateTo, setDateTo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [logsPerPage] = useState(50);
+  const LOGS_PER_PAGE = 50;
 
-  const actionTypes = ['All', 'Attendance Added', 'Category Change', 'Data Export'];
+  const allActionTypes = ['All', ...Object.keys(ACTION_CONFIG)];
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  useEffect(() => { fetchLogs(); }, []);
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      const logsRef = collection(db, 'logs');
-      const logsQuery = query(logsRef, orderBy('timestamp', 'desc'), limit(1000));
-      const logsSnapshot = await getDocs(logsQuery);
-      
-      const logsData = logsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date()
-      }));
-      
-      setLogs(logsData);
-    } catch (error) {
-      console.error('Error fetching logs:', error);
+      const q = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(1000));
+      const snap = await getDocs(q);
+      setLogs(snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        timestamp: d.data().timestamp?.toDate() || new Date(),
+      })));
+    } catch (err) {
+      console.error('Error fetching logs:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const filteredLogs = logs.filter(log => {
-    const matchesAction = filterAction === 'All' || log.action === filterAction;
-    const matchesUser = filterUser === 'All' || log.user === filterUser;
-    const matchesSearch = log.details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.user?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    let matchesDate = true;
+    if (filterAction !== 'All' && log.action !== filterAction) return false;
+    if (filterUser !== 'All' && log.user !== filterUser) return false;
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      if (!log.details?.toLowerCase().includes(q) &&
+          !log.memberName?.toLowerCase().includes(q) &&
+          !log.user?.toLowerCase().includes(q)) return false;
+    }
     if (dateFrom || dateTo) {
-      const logDate = log.timestamp;
-      if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        matchesDate = matchesDate && logDate >= fromDate;
-      }
+      const d = log.timestamp;
+      if (dateFrom && d < new Date(dateFrom)) return false;
       if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        matchesDate = matchesDate && logDate <= toDate;
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        if (d > to) return false;
       }
     }
-    
-    return matchesAction && matchesUser && matchesSearch && matchesDate;
+    return true;
   });
 
-  const uniqueUsers = [...new Set(logs.map(log => log.user))].filter(Boolean);
-
-  // Pagination
-  const indexOfLastLog = currentPage * logsPerPage;
-  const indexOfFirstLog = indexOfLastLog - logsPerPage;
-  const currentLogs = filteredLogs.slice(indexOfFirstLog, indexOfLastLog);
-  const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
-
-
+  const uniqueUsers = [...new Set(logs.map(l => l.user))].filter(Boolean);
+  const totalPages = Math.ceil(filteredLogs.length / LOGS_PER_PAGE);
+  const currentLogs = filteredLogs.slice((currentPage - 1) * LOGS_PER_PAGE, currentPage * LOGS_PER_PAGE);
 
   const clearFilters = () => {
     setFilterAction('All');
@@ -88,25 +87,9 @@ const Logs = () => {
     setCurrentPage(1);
   };
 
-  const getActionIcon = (action) => {
-    switch (action) {
-      case 'Attendance Added': return '•';
-      case 'Category Change': return '→';
-      case 'Data Export': return '↓';
-      default: return '•';
-    }
-  };
-
-  const getActionColor = (action) => {
-    switch (action) {
-      case 'Attendance Added': return 'success';
-      case 'Category Change': return 'warning';
-      case 'Login': return 'info';
-      case 'Logout': return 'secondary';
-      case 'Data Export': return 'primary';
-      default: return 'default';
-    }
-  };
+  const todayCount = filteredLogs.filter(l =>
+    l.timestamp.toDateString() === new Date().toDateString()
+  ).length;
 
   if (loading) {
     return (
@@ -114,10 +97,7 @@ const Logs = () => {
         <Navigation user={user} />
         <div className="page-content">
           <div className="logs-container">
-            <div className="loading-spinner">
-              <div className="spinner"></div>
-              <p>Loading audit logs...</p>
-            </div>
+            <div className="loading-spinner"><div className="spinner" /><p>Loading audit logs...</p></div>
           </div>
         </div>
       </>
@@ -129,190 +109,158 @@ const Logs = () => {
       <Navigation user={user} />
       <div className="page-content">
         <div className="logs-container">
-        {/* Page Header */}
-        <div className="page-header-clean">
-          <h1>Audit Logs</h1>
-          <p>Track all system activities and changes</p>
-        </div>
 
-        {/* Filters Card */}
-        <div className="filters-card">
-          <div className="filters-header">
-            <h3>Filter & Search</h3>
-
+          <div className="page-header-clean">
+            <h1>Audit Logs</h1>
+            <p>Track all system activities and changes</p>
           </div>
 
-          <div className="filters-grid">
-            <div className="filter-group-clean">
-              <label>Search Logs</label>
-              <input
-                type="text"
-                placeholder="Search by details, user, or member..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input-clean"
-              />
+          {/* Stats */}
+          <div className="logs-stats">
+            <div className="stat-card">
+              <h3>Matching Logs</h3>
+              <p className="stat-number">{filteredLogs.length.toLocaleString()}</p>
             </div>
-
-            <div className="filter-group-clean">
-              <label>Action Type</label>
-              <select
-                value={filterAction}
-                onChange={(e) => setFilterAction(e.target.value)}
-                className="select-clean"
-              >
-                {actionTypes.map(action => (
-                  <option key={action} value={action}>{action}</option>
-                ))}
-              </select>
+            <div className="stat-card">
+              <h3>Today</h3>
+              <p className="stat-number">{todayCount}</p>
             </div>
-
-            <div className="filter-group-clean">
-              <label>User</label>
-              <select
-                value={filterUser}
-                onChange={(e) => setFilterUser(e.target.value)}
-                className="select-clean"
-              >
-                <option value="All">All Users</option>
-                {uniqueUsers.map(user => (
-                  <option key={user} value={user}>{user}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="filter-group-clean">
-              <label>From Date</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="date-input-clean"
-              />
-            </div>
-
-            <div className="filter-group-clean">
-              <label>To Date</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="date-input-clean"
-              />
-            </div>
-
-            <div className="filter-actions">
-              <button onClick={clearFilters} className="btn-secondary">
-                Clear Filters
-              </button>
-              <button onClick={fetchLogs} className="btn-primary">
-                Refresh
-              </button>
+            <div className="stat-card">
+              <h3>Users</h3>
+              <p className="stat-number">{uniqueUsers.length}</p>
             </div>
           </div>
-        </div>
 
-      {/* Statistics */}
-      <div className="logs-stats">
-        <div className="stat-card">
-          <h3>Total Logs</h3>
-          <p className="stat-number">{filteredLogs.length}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Today's Activities</h3>
-          <p className="stat-number">
-            {filteredLogs.filter(log => {
-              const today = new Date();
-              const logDate = log.timestamp;
-              return logDate.toDateString() === today.toDateString();
-            }).length}
-          </p>
-        </div>
-        <div className="stat-card">
-          <h3>Active Users</h3>
-          <p className="stat-number">{uniqueUsers.length}</p>
-        </div>
-      </div>
+          {/* Filters */}
+          <div className="filters-card">
+            <div className="filters-header">
+              <h3>Filter & Search</h3>
+              <button onClick={clearFilters} className="refresh-btn-small">Clear</button>
+            </div>
+            <div className="filters-grid">
+              <div className="filter-group-clean">
+                <label>Search</label>
+                <input
+                  type="text"
+                  className="search-input-clean"
+                  placeholder="Details, user, member..."
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                />
+              </div>
+              <div className="filter-group-clean">
+                <label>Action</label>
+                <select
+                  className="select-clean"
+                  value={filterAction}
+                  onChange={(e) => { setFilterAction(e.target.value); setCurrentPage(1); }}
+                >
+                  {allActionTypes.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-group-clean">
+                <label>User</label>
+                <select
+                  className="select-clean"
+                  value={filterUser}
+                  onChange={(e) => { setFilterUser(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="All">All Users</option>
+                  {uniqueUsers.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div className="filter-group-clean">
+                <label>From Date</label>
+                <input
+                  type="date"
+                  className="date-input-clean"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                />
+              </div>
+              <div className="filter-group-clean">
+                <label>To Date</label>
+                <input
+                  type="date"
+                  className="date-input-clean"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+                />
+              </div>
+              <div className="filter-actions">
+                <button onClick={fetchLogs} className="btn-primary">Refresh</button>
+              </div>
+            </div>
+          </div>
 
-      {/* Logs Table */}
-      <div className="logs-table-container">
-        <table className="logs-table">
-          <thead>
-            <tr>
-              <th>Date/Time</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Details</th>
-              <th>Member</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentLogs.map((log) => (
-              <tr key={log.id} className="log-row">
-                <td className="log-timestamp">
-                  {log.timestamp.toLocaleString()}
-                </td>
-                <td className="log-user">{log.user || 'System'}</td>
-                <td className="log-action">
-                  <span className={`action-badge action-${getActionColor(log.action)}`}>
-                    {getActionIcon(log.action)} {log.action}
-                  </span>
-                </td>
-                <td className="log-details">{log.details}</td>
-                <td className="log-member">{log.memberName || 'N/A'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          {/* Table */}
+          <div className="table-card">
+            <div className="table-header">
+              <h3>Activity Log</h3>
+              <span className="table-info">
+                {currentLogs.length} of {filteredLogs.length} entries
+              </span>
+            </div>
+            <div className="table-container-clean">
+              <table className="logs-table">
+                <thead>
+                  <tr>
+                    <th>Date / Time</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>Member</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentLogs.map(log => {
+                    const { color, label } = getActionConfig(log.action);
+                    return (
+                      <tr key={log.id} className="log-row">
+                        <td className="log-timestamp">
+                          {log.timestamp.toLocaleDateString()}{' '}
+                          <span style={{ color: 'var(--text-light)' }}>
+                            {log.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </td>
+                        <td className="log-user">{log.user?.split('@')[0] || 'System'}</td>
+                        <td className="log-action">
+                          <span className={`action-badge ${color}`}>{label}</span>
+                        </td>
+                        <td className="log-details">{log.details}</td>
+                        <td className="log-member">{log.memberName || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className="pagination-btn"
-          >
-            ← Previous
-          </button>
-          
-          <span className="pagination-info">
-            Page {currentPage} of {totalPages} ({filteredLogs.length} total logs)
-          </span>
-          
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="pagination-btn"
-          >
-            Next →
-          </button>
-        </div>
-      )}
+            {filteredLogs.length === 0 && (
+              <div className="no-logs">No logs match your filters.</div>
+            )}
 
-      {filteredLogs.length === 0 && (
-        <div className="no-logs">
-          <p>No logs found matching your criteria.</p>
-        </div>
-      )}
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                >← Prev</button>
+                <span className="pagination-info">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >Next →</button>
+              </div>
+            )}
+          </div>
 
-      {/* Floating Quick Access Menu */}
-      <div className="floating-quick-menu">
-        <div className="quick-menu-item" onClick={() => navigate('/')} title="Dashboard">
-          <span className="menu-icon">🏠</span>
-        </div>
-        <div className="quick-menu-item" onClick={() => navigate('/attendance')} title="Add Attendance">
-          <span className="menu-icon">➕</span>
-        </div>
-        <div className="quick-menu-item" onClick={() => navigate('/analytics')} title="Analytics">
-          <span className="menu-icon">📊</span>
-        </div>
-        <div className="quick-menu-item" onClick={() => navigate('/membership')} title="Membership">
-          <span className="menu-icon">👥</span>
-        </div>
-        
-        </div>
         </div>
       </div>
     </>

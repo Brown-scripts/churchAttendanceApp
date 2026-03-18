@@ -13,7 +13,6 @@ import {
   BorderStyle
 } from "docx";
 
-// Categories for the report
 const categories = [
   "L100",
   "L200",
@@ -24,27 +23,30 @@ const categories = [
   "New Member",
 ];
 
-const generateCSVReport = async (serviceName, attendanceData) => {
-  // Create CSV content
-  let csvContent = `${serviceName} Attendance Report\n\n`;
+// Returns true if a date string (YYYY-MM-DD) falls within [startDate, endDate] (both YYYY-MM-DD)
+const isInRange = (dateStr, startDate, endDate) => {
+  if (!startDate && !endDate) return true;
+  if (startDate && dateStr < startDate) return false;
+  if (endDate && dateStr > endDate) return false;
+  return true;
+};
 
-  Object.keys(attendanceData).forEach(date => {
-    const { attendees } = attendanceData[date];
+const generateCSVReport = (label, attendanceData) => {
+  let csvContent = `${label} Attendance Report\n\n`;
+
+  const sortedDates = Object.keys(attendanceData).sort();
+  sortedDates.forEach(date => {
+    const { serviceName, attendees } = attendanceData[date];
 
     csvContent += `Date: ${date}\n`;
     csvContent += `Service: ${serviceName}\n\n`;
-
-    // Add headers
     csvContent += "Category," + categories.join(",") + ",Total\n";
 
-    // Calculate totals
     let categoryTotals = categories.map(cat => attendees[cat] ? attendees[cat].length : 0);
     let totalAttendance = categoryTotals.reduce((sum, count) => sum + count, 0);
 
-    // Add totals row
     csvContent += "Count," + categoryTotals.join(",") + "," + totalAttendance + "\n\n";
 
-    // Add individual attendees
     const maxAttendees = Math.max(...categoryTotals, 1);
     for (let i = 0; i < maxAttendees; i++) {
       let row = `Attendee ${i + 1},`;
@@ -55,48 +57,57 @@ const generateCSVReport = async (serviceName, attendanceData) => {
     csvContent += "\n";
   });
 
-  // Create and download CSV file
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  saveAs(blob, `${serviceName}_Attendance_Report.csv`);
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  saveAs(blob, `${label.replace(/\s+/g, "_")}_Attendance_Report.csv`);
 };
 
-
-
-const generateReport = async (serviceName, format = "word") => {
-  // Fetch all attendance data
+// serviceName: string or null (null = all services)
+// startDate / endDate: "YYYY-MM-DD" strings or null
+const generateReport = async (serviceName, format = "word", startDate = null, endDate = null) => {
   const querySnapshot = await getDocs(attendanceCollection);
   let attendanceData = {};
 
-  // Organize data by date and category, and filter by the serviceName
   querySnapshot.forEach((doc) => {
     const entry = doc.data();
     const { date, category, name, serviceName: entryServiceName } = entry;
 
-    if (entryServiceName === serviceName) {
-      if (!attendanceData[date]) {
-        attendanceData[date] = { serviceName: entryServiceName, totals: {}, attendees: {} };
-      }
-      if (!attendanceData[date].attendees[category]) {
-        attendanceData[date].attendees[category] = [];
-      }
+    const serviceMatch = !serviceName || entryServiceName === serviceName;
+    const dateMatch = isInRange(date, startDate, endDate);
 
-      attendanceData[date].attendees[category].push(name);
+    if (serviceMatch && dateMatch) {
+      const key = date;
+      if (!attendanceData[key]) {
+        attendanceData[key] = { serviceName: entryServiceName, totals: {}, attendees: {} };
+      }
+      if (!attendanceData[key].attendees[category]) {
+        attendanceData[key].attendees[category] = [];
+      }
+      attendanceData[key].attendees[category].push(name);
     }
   });
 
-  // If no data is available for the selected service, return early
   if (Object.keys(attendanceData).length === 0) {
-    alert(`No attendance data found for service: ${serviceName}`);
+    alert("No attendance data found for the selected period.");
     return;
   }
 
-  // Generate report based on format
+  // Build a human-readable label for the report title
+  let reportLabel = serviceName || "All Services";
+  if (startDate && endDate) {
+    const fmt = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    reportLabel += ` — ${fmt(startDate)} to ${fmt(endDate)}`;
+  } else if (startDate) {
+    reportLabel += ` — From ${new Date(startDate + "T00:00:00").toLocaleDateString()}`;
+  } else if (endDate) {
+    reportLabel += ` — Up to ${new Date(endDate + "T00:00:00").toLocaleDateString()}`;
+  }
+
   if (format === "csv") {
-    generateCSVReport(serviceName, attendanceData);
+    generateCSVReport(reportLabel, attendanceData);
     return;
   }
 
-  // Calculate overall statistics
+  // Calculate overall statistics across all dates
   let overallStats = categories.map(cat => ({
     category: cat,
     total: Object.keys(attendanceData).reduce((sum, date) => {
@@ -107,51 +118,51 @@ const generateReport = async (serviceName, format = "word") => {
 
   let grandTotal = overallStats.reduce((sum, stat) => sum + stat.total, 0);
 
-  // Generate the enhanced Word document
+  const sortedDates = Object.keys(attendanceData).sort();
+
   const doc = new Document({
     sections: [
       {
         properties: {},
         children: [
-          // Church Header
           new Paragraph({
-            children: [new TextRun({
-              text: "URF ZONE 1 CHURCH",
-              bold: true,
-              size: 32,
-              color: "1F4E79"
-            })],
+            children: [new TextRun({ text: "URF ZONE 1 CHURCH", bold: true, size: 32, color: "1F4E79" })],
             alignment: "center",
             spacing: { after: 200 },
           }),
-
           new Paragraph({
-            children: [new TextRun({
-              text: "ATTENDANCE REPORT",
-              bold: true,
-              size: 28,
-              color: "2E5984"
-            })],
+            children: [new TextRun({ text: "ATTENDANCE REPORT", bold: true, size: 28, color: "2E5984" })],
             alignment: "center",
             spacing: { after: 400 },
           }),
 
-          // Service and Date Info
-          new Paragraph({
+          // Service and period info
+          ...(serviceName ? [new Paragraph({
+            children: [new TextRun({ text: `Service: ${serviceName}`, bold: true, size: 24 })],
+            alignment: "center",
+            spacing: { after: 200 },
+          })] : []),
+
+          ...(startDate || endDate ? [new Paragraph({
             children: [new TextRun({
-              text: `Service: ${serviceName}`,
+              text: startDate && endDate
+                ? `Period: ${startDate} to ${endDate}`
+                : startDate
+                  ? `From: ${startDate}`
+                  : `Up to: ${endDate}`,
               bold: true,
-              size: 24
+              size: 22,
+              color: "2E5984",
             })],
             alignment: "center",
             spacing: { after: 200 },
-          }),
+          })] : []),
 
           new Paragraph({
             children: [new TextRun({
               text: `Report Generated: ${new Date().toLocaleDateString()}`,
               size: 20,
-              italics: true
+              italics: true,
             })],
             alignment: "center",
             spacing: { after: 400 },
@@ -159,12 +170,7 @@ const generateReport = async (serviceName, format = "word") => {
 
           // Overall Summary Table
           new Paragraph({
-            children: [new TextRun({
-              text: "OVERALL SUMMARY",
-              bold: true,
-              size: 22,
-              color: "1F4E79"
-            })],
+            children: [new TextRun({ text: "OVERALL SUMMARY", bold: true, size: 22, color: "1F4E79" })],
             spacing: { before: 400, after: 300 },
           }),
 
@@ -186,12 +192,8 @@ const generateReport = async (serviceName, format = "word") => {
               }),
               ...overallStats.map(stat => new TableRow({
                 children: [
-                  new TableCell({
-                    children: [new Paragraph({ children: [new TextRun({ text: stat.category, size: 18 })] })],
-                  }),
-                  new TableCell({
-                    children: [new Paragraph({ children: [new TextRun({ text: stat.total.toString(), size: 18, bold: true })] })],
-                  }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: stat.category, size: 18 })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: stat.total.toString(), size: 18, bold: true })] })] }),
                 ],
               })),
               new TableRow({
@@ -220,19 +222,13 @@ const generateReport = async (serviceName, format = "word") => {
 
           // Detailed Attendance by Date
           new Paragraph({
-            children: [new TextRun({
-              text: "DETAILED ATTENDANCE BY DATE",
-              bold: true,
-              size: 22,
-              color: "1F4E79"
-            })],
+            children: [new TextRun({ text: "DETAILED ATTENDANCE BY DATE", bold: true, size: 22, color: "1F4E79" })],
             spacing: { before: 600, after: 300 },
           }),
 
-          ...Object.keys(attendanceData).map((date) => {
-            const { attendees } = attendanceData[date];
+          ...sortedDates.map((date) => {
+            const { serviceName: dateSvcName, attendees } = attendanceData[date];
 
-            // Calculate totals for this date
             let totalAttendance = 0;
             let categoryTotals = categories.map((cat) => {
               const count = attendees[cat] ? attendees[cat].length : 0;
@@ -240,8 +236,7 @@ const generateReport = async (serviceName, format = "word") => {
               return count;
             });
 
-            // Create detailed table for this date
-            let tableRows = [
+            const tableRows = [
               new TableRow({
                 children: [
                   new TableCell({
@@ -263,18 +258,13 @@ const generateReport = async (serviceName, format = "word") => {
                 (_, i) =>
                   new TableRow({
                     children: [
-                      new TableCell({
-                        children: [new Paragraph({ children: [new TextRun({ text: `${i + 1}`, size: 16 })] })],
-                      }),
+                      new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: `${i + 1}`, size: 16 })] })] }),
                       ...categories.map((cat) =>
-                        new TableCell({
-                          children: [new Paragraph({ children: [new TextRun({ text: attendees[cat]?.[i] || "", size: 16 })] })],
-                        })
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: attendees[cat]?.[i] || "", size: 16 })] })] })
                       ),
                     ],
                   })
               ),
-              // Total Row for this date
               new TableRow({
                 children: [
                   new TableCell({
@@ -295,7 +285,8 @@ const generateReport = async (serviceName, format = "word") => {
               new Paragraph({
                 children: [
                   new TextRun({ text: `Date: ${date}`, bold: true, size: 20, color: "2E5984" }),
-                  new TextRun({ text: ` | Total Attendance: ${totalAttendance}`, bold: true, size: 18, color: "666666" }),
+                  ...(dateSvcName && !serviceName ? [new TextRun({ text: ` | Service: ${dateSvcName}`, size: 18, color: "444444" })] : []),
+                  new TextRun({ text: ` | Total: ${totalAttendance}`, bold: true, size: 18, color: "666666" }),
                 ],
                 spacing: { before: 400, after: 200 },
               }),
@@ -315,13 +306,12 @@ const generateReport = async (serviceName, format = "word") => {
             ];
           }).flat(),
 
-          // Footer
           new Paragraph({
             children: [new TextRun({
               text: `Generated by Church Attendance Management System on ${new Date().toLocaleString()}`,
               size: 16,
               italics: true,
-              color: "666666"
+              color: "666666",
             })],
             alignment: "center",
             spacing: { before: 600 },
@@ -331,9 +321,9 @@ const generateReport = async (serviceName, format = "word") => {
     ],
   });
 
-  // Save the document
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `${serviceName}_Attendance_Report.docx`);
+  const filename = `${(serviceName || "All_Services").replace(/\s+/g, "_")}_${startDate || "all"}_${endDate || "dates"}.docx`;
+  saveAs(blob, filename);
 };
 
 export default generateReport;

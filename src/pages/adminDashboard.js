@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  collection, 
-  getDocs, 
-  addDoc, 
-  deleteDoc, 
-  doc, 
-  updateDoc,
-  serverTimestamp,
-  query,
-  where
+import {
+  collection, getDocs, addDoc, deleteDoc,
+  doc, updateDoc, serverTimestamp, query, where,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../context/authContext";
@@ -17,144 +10,99 @@ import Navigation from "../components/Navigation";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserRole, setNewUserRole] = useState("user");
+  const [newEmail, setNewEmail] = useState("");
+  const [newRole, setNewRole] = useState("user");
   const [loading, setLoading] = useState(true);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch all allowed users
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const snapshot = await getDocs(collection(db, "allowedUsers"));
-      const usersList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setUsers(usersList);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      setErrorMessage("Failed to fetch users");
+      const snap = await getDocs(collection(db, "allowedUsers"));
+      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      setErrorMsg("Failed to fetch users");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
-  // Add new user
+  const showSuccess = (msg) => {
+    setSuccessMsg(msg);
+    setErrorMsg("");
+    setTimeout(() => setSuccessMsg(""), 3500);
+  };
+  const showError = (msg) => {
+    setErrorMsg(msg);
+    setSuccessMsg("");
+  };
+
   const handleAddUser = async (e) => {
     e.preventDefault();
-    
-    if (!newUserEmail.trim()) {
-      setErrorMessage("Please enter an email address");
-      return;
-    }
-
+    if (!newEmail.trim()) { showError("Please enter an email."); return; }
     try {
-      // Check if user already exists
-      const q = query(
-        collection(db, "allowedUsers"),
-        where("email", "==", newUserEmail.toLowerCase())
-      );
-      const existingUser = await getDocs(q);
-      
-      if (!existingUser.empty) {
-        setErrorMessage("User already exists");
-        return;
-      }
+      const q = query(collection(db, "allowedUsers"), where("email", "==", newEmail.toLowerCase()));
+      const existing = await getDocs(q);
+      if (!existing.empty) { showError("User already exists."); return; }
 
-      // Add new user
       await addDoc(collection(db, "allowedUsers"), {
-        email: newUserEmail.toLowerCase(),
-        role: newUserRole,
+        email: newEmail.toLowerCase(),
+        role: newRole,
         addedBy: user.email,
-        addedAt: serverTimestamp()
+        addedAt: serverTimestamp(),
       });
-
-      // Log the action
       await addDoc(collection(db, "logs"), {
         action: "User Added",
-        details: `Added user ${newUserEmail} with role ${newUserRole}`,
+        details: `Added user ${newEmail} with role ${newRole}`,
         user: user.email,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
       });
-
-      setSuccessMessage(`User ${newUserEmail} added successfully`);
-      setNewUserEmail("");
-      setNewUserRole("user");
+      setNewEmail(""); setNewRole("user");
+      showSuccess(`${newEmail} added successfully`);
       fetchUsers();
-      
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      console.error("Error adding user:", error);
-      setErrorMessage("Failed to add user");
+    } catch (err) {
+      showError("Failed to add user.");
     }
   };
 
-  // Update user role
-  const handleUpdateRole = async (userId, currentEmail, newRole) => {
+  const handleUpdateRole = async (userId, email, role) => {
     try {
       await updateDoc(doc(db, "allowedUsers", userId), {
-        role: newRole,
-        updatedBy: user.email,
-        updatedAt: serverTimestamp()
+        role, updatedBy: user.email, updatedAt: serverTimestamp(),
       });
-
-      // Log the action
       await addDoc(collection(db, "logs"), {
         action: "User Role Updated",
-        details: `Updated ${currentEmail} role to ${newRole}`,
+        details: `Updated ${email} role to ${role}`,
         user: user.email,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
       });
-
-      setSuccessMessage(`Role updated for ${currentEmail}`);
+      showSuccess(`Role updated for ${email}`);
       fetchUsers();
-      
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      console.error("Error updating role:", error);
-      setErrorMessage("Failed to update role");
+    } catch (err) {
+      showError("Failed to update role.");
     }
   };
 
-  // Remove user
-  const handleRemoveUser = async (userId, userEmail) => {
-    if (!window.confirm(`Are you sure you want to remove ${userEmail}?`)) {
-      return;
-    }
-
+  const handleRemove = async (userId, email) => {
+    if (!window.confirm(`Remove ${email}?`)) return;
     try {
       await deleteDoc(doc(db, "allowedUsers", userId));
-
-      // Log the action
       await addDoc(collection(db, "logs"), {
         action: "User Removed",
-        details: `Removed user ${userEmail}`,
+        details: `Removed user ${email}`,
         user: user.email,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
       });
-
-      setSuccessMessage(`User ${userEmail} removed successfully`);
+      showSuccess(`${email} removed.`);
       fetchUsers();
-      
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (error) {
-      console.error("Error removing user:", error);
-      setErrorMessage("Failed to remove user");
+    } catch (err) {
+      showError("Failed to remove user.");
     }
-  };
-
-  // Clear messages
-  const clearMessages = () => {
-    setSuccessMessage("");
-    setErrorMessage("");
   };
 
   if (!isAdmin()) {
@@ -162,7 +110,10 @@ export default function AdminDashboard() {
       <div className="page-content">
         <div className="error-container">
           <h2>Access Denied</h2>
-          <p>You must be an administrator to access this page.</p>
+          <p>Administrator access required.</p>
+          <button onClick={() => navigate("/")} className="btn-secondary" style={{ marginTop: "1rem" }}>
+            Go Home
+          </button>
         </div>
       </div>
     );
@@ -173,68 +124,63 @@ export default function AdminDashboard() {
       <Navigation user={user} />
       <div className="page-content">
         <div className="admin-dashboard-container">
-          {/* Page Header */}
+
           <div className="page-header-clean">
             <h1>Admin Dashboard</h1>
             <p>Manage user access and permissions</p>
           </div>
 
-          {/* Messages */}
-          {successMessage && (
+          {successMsg && (
             <div className="success-banner">
-              <span>{successMessage}</span>
-              <button onClick={clearMessages} className="success-close">×</button>
+              <span>{successMsg}</span>
+              <button onClick={() => setSuccessMsg("")} className="success-close">×</button>
             </div>
           )}
-
-          {errorMessage && (
+          {errorMsg && (
             <div className="error-banner">
-              <span>{errorMessage}</span>
-              <button onClick={clearMessages} className="error-close">×</button>
+              <span>{errorMsg}</span>
+              <button onClick={() => setErrorMsg("")} className="error-close">×</button>
             </div>
           )}
 
-          {/* Add User Form */}
+          {/* Add user */}
           <div className="controls-card">
-            <h3>Add New User</h3>
+            <div className="controls-header">
+              <h3>Add New User</h3>
+            </div>
             <form onSubmit={handleAddUser} className="add-user-form">
-              <div className="form-group">
-                <label htmlFor="email">Email Address</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Email Address</label>
                 <input
                   type="email"
-                  id="email"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  placeholder="Enter user email..."
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="user@example.com"
                   required
                 />
               </div>
-              
-              <div className="form-group">
-                <label htmlFor="role">Role</label>
-                <select
-                  id="role"
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value)}
-                  className="select-clean"
-                >
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Role</label>
+                <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="select-clean">
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              
-              <button type="submit" className="btn-primary">
-                Add User
-              </button>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button type="submit" className="btn-primary">Add User</button>
+              </div>
             </form>
           </div>
 
-          {/* Users List */}
-          <div className="controls-card">
-            <h3>Manage Users ({users.length})</h3>
-            
+          {/* Users list */}
+          <div className="table-card">
+            <div className="table-header">
+              <h3>Users ({users.length})</h3>
+              <button onClick={fetchUsers} className="refresh-btn-small">Refresh</button>
+            </div>
+
             {loading ? (
-              <div className="loading-spinner">Loading users...</div>
+              <div className="loading-spinner"><div className="spinner" /><p>Loading...</p></div>
             ) : (
               <div className="users-table-container">
                 <table className="users-table">
@@ -242,35 +188,33 @@ export default function AdminDashboard() {
                     <tr>
                       <th>Email</th>
                       <th>Role</th>
-                      <th>Added Date</th>
+                      <th>Added</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((userData) => (
-                      <tr key={userData.id}>
-                        <td>{userData.email}</td>
+                    {users.map(u => (
+                      <tr key={u.id}>
+                        <td style={{ fontWeight: 500 }}>{u.email}</td>
                         <td>
                           <select
-                            value={userData.role}
-                            onChange={(e) => handleUpdateRole(userData.id, userData.email, e.target.value)}
+                            value={u.role}
+                            onChange={(e) => handleUpdateRole(u.id, u.email, e.target.value)}
                             className="role-select"
+                            disabled={u.email === user?.email}
                           >
                             <option value="user">User</option>
                             <option value="admin">Admin</option>
                           </select>
                         </td>
-                        <td>
-                          {userData.addedAt ? 
-                            new Date(userData.addedAt.seconds * 1000).toLocaleDateString() : 
-                            'N/A'
-                          }
+                        <td style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                          {u.addedAt ? new Date(u.addedAt.seconds * 1000).toLocaleDateString() : "—"}
                         </td>
                         <td>
                           <button
-                            onClick={() => handleRemoveUser(userData.id, userData.email)}
+                            onClick={() => handleRemove(u.id, u.email)}
                             className="btn-danger btn-sm"
-                            disabled={userData.email === user.email}
+                            disabled={u.email === user?.email}
                           >
                             Remove
                           </button>
@@ -279,22 +223,15 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
+                {users.length === 0 && (
+                  <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                    No users found.
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Floating Quick Access Menu */}
-          <div className="floating-quick-menu">
-            <div className="quick-menu-item" onClick={() => navigate('/')} title="Home">
-              <span className="menu-icon">🏠</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate('/membership')} title="Membership">
-              <span className="menu-icon">👥</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
-              <span className="menu-icon">📋</span>
-            </div>
-          </div>
         </div>
       </div>
     </>
