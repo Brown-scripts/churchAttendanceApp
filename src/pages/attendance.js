@@ -35,6 +35,7 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkSuccessMessage, setBulkSuccessMessage] = useState("");
   const [alreadyPresent, setAlreadyPresent] = useState([]);
+  const [expandedCategories, setExpandedCategories] = useState({});
 
   const navigate = useNavigate();
   const auth = getAuth();
@@ -514,7 +515,7 @@ export default function AttendanceForm({ fetchAttendance }) {
                   </button>
                 </div>
 
-                {/* Members checklist grouped by category */}
+                {/* Members checklist grouped by category — collapsible */}
                 <div className="bulk-member-list">
                   {categories.map((cat) => {
                     const catMembers = filteredBulkMembers.filter((m) => m.category === cat);
@@ -522,11 +523,22 @@ export default function AttendanceForm({ fetchAttendance }) {
 
                     const allSelected = catMembers.every((m) => bulkSelected[m.name]);
                     const someSelected = catMembers.some((m) => bulkSelected[m.name]);
+                    const isOpen = !!expandedCategories[cat];
+                    const selectedInCat = catMembers.filter((m) => bulkSelected[m.name]).length;
 
                     return (
                       <div key={cat} className="bulk-category-group">
-                        <div className="bulk-category-header">
-                          <label className="bulk-category-label">
+                        <div
+                          className="bulk-category-header"
+                          style={{ cursor: "pointer" }}
+                          onClick={() =>
+                            setExpandedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }))
+                          }
+                        >
+                          <label
+                            className="bulk-category-label"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <input
                               type="checkbox"
                               checked={allSelected}
@@ -534,29 +546,41 @@ export default function AttendanceForm({ fetchAttendance }) {
                               onChange={() => toggleAllInCategory(cat, catMembers)}
                             />
                             <span>{cat}</span>
-                            <span className="bulk-cat-count">{catMembers.length} members</span>
+                            <span className="bulk-cat-count">
+                              {catMembers.length} members
+                              {selectedInCat > 0 && (
+                                <span style={{ color: "var(--accent)", fontWeight: 700, marginLeft: "0.4rem" }}>
+                                  · {selectedInCat} selected
+                                </span>
+                              )}
+                            </span>
                           </label>
+                          <span style={{ marginLeft: "auto", paddingLeft: "0.75rem", color: "var(--text-muted)", fontSize: "1rem", lineHeight: 1 }}>
+                            {isOpen ? "▲" : "▼"}
+                          </span>
                         </div>
-                        <div className="bulk-members-grid">
-                          {catMembers.map((m) => {
-                            const isPresent = alreadyPresent.includes(m.name.toLowerCase().trim());
-                            return (
-                              <label
-                                key={m.name}
-                                className={`bulk-member-item ${isPresent ? "already-present" : ""} ${bulkSelected[m.name] ? "member-selected" : ""}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={!!bulkSelected[m.name]}
-                                  onChange={() => toggleBulkMember(m.name)}
-                                  disabled={isPresent}
-                                />
-                                <span className="bulk-member-name">{m.name}</span>
-                                {isPresent && <span className="present-badge">Present</span>}
-                              </label>
-                            );
-                          })}
-                        </div>
+                        {isOpen && (
+                          <div className="bulk-members-list-col">
+                            {catMembers.map((m) => {
+                              const isPresent = alreadyPresent.includes(m.name.toLowerCase().trim());
+                              return (
+                                <label
+                                  key={m.name}
+                                  className={`bulk-member-item ${isPresent ? "already-present" : ""} ${bulkSelected[m.name] ? "member-selected" : ""}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={!!bulkSelected[m.name]}
+                                    onChange={() => toggleBulkMember(m.name)}
+                                    disabled={isPresent}
+                                  />
+                                  <span className="bulk-member-name">{m.name}</span>
+                                  {isPresent && <span className="present-badge">Present</span>}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
