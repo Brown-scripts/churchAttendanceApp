@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 
 const ACTION_CONFIG = {
@@ -21,7 +20,7 @@ const getActionConfig = (action) =>
 
 const Logs = () => {
   const [user] = useAuthState(auth);
-  const navigate = useNavigate();
+
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterAction, setFilterAction] = useState('All');

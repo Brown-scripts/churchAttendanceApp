@@ -36,7 +36,7 @@ export default function Home() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribe();
-  }, []);
+  }, [auth]);
 
   // Fetch dashboard stats once
   useEffect(() => {

@@ -20,7 +20,7 @@ const Navigation = ({ user }) => {
   const location = useLocation();
   const auth = getAuth();
   const { isDarkMode, toggleTheme } = useTheme();
-  const { isAdmin } = useAuth();
+  useAuth();
 
   const handleLogout = async () => {
     try {
