@@ -1135,8 +1135,8 @@ input.readonly, .form-input.readonly {
 .bulk-member-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  max-height: 55vh;
+  gap: 0.75rem;
+  max-height: 60vh;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -1218,9 +1218,10 @@ input.readonly, .form-input.readonly {
 }
 
 .bulk-member-item.already-present {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
   background: var(--surface-2);
+  border-style: dashed;
 }
 
 .bulk-member-name {
@@ -1861,13 +1862,16 @@ input.readonly, .form-input.readonly {
   .add-user-form { grid-template-columns: 1fr; }
   .add-user-form > div:last-child { grid-column: 1; }
 
-  /* Bulk attendance grid — 2 columns on mobile */
-  .bulk-members-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; }
-  .bulk-member-item { padding: 0.4rem 0.5rem; font-size: 0.8125rem; }
+  /* Bulk attendance grid — 1 column on mobile for full name visibility */
+  .bulk-members-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 0.3rem; }
+  .bulk-member-item { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
 
   /* Bulk submit row */
   .bulk-submit-row { flex-wrap: wrap; }
   .bulk-submit-row .submit-btn { flex: 1; min-width: 120px; }
+
+  /* Bulk member list — more scroll space on mobile since 1-col is taller */
+  .bulk-member-list { max-height: 70vh; gap: 0.5rem; }
 
   /* Membership stats */
   .stats-grid { grid-template-columns: repeat(4, 1fr); }
