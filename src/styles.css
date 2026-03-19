@@ -1175,7 +1175,7 @@ input.readonly, .form-input.readonly {
 
 .bulk-members-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.375rem;
   padding: 0.75rem;
   background: var(--surface);
@@ -1185,7 +1185,7 @@ input.readonly, .form-input.readonly {
 
 .bulk-member-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   padding: 0.5rem 0.625rem;
   border-radius: var(--radius-sm);
@@ -1198,7 +1198,6 @@ input.readonly, .form-input.readonly {
   user-select: none;
   min-height: 2.25rem;
   min-width: 0;
-  overflow: hidden;
 }
 
 .bulk-member-item:hover:not(.already-present) {
@@ -1757,12 +1756,13 @@ input.readonly, .form-input.readonly {
 @media (max-width: 1024px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .quick-actions { grid-template-columns: repeat(3, 1fr); }
-  .service-list { grid-template-columns: repeat(2, 1fr); }
+  .service-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail-cat-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* ── Tablet narrow / large phone (≤ 900px) ── */
 @media (max-width: 900px) {
-  /* Nav */
+  /* Nav — switch to hamburger */
   .navbar-nav { display: none; }
   .navbar-actions { display: none; }
   .navbar-mobile-toggle { display: flex; }
@@ -1774,22 +1774,32 @@ input.readonly, .form-input.readonly {
     gap: 1.25rem;
   }
 
-  /* Grids */
+  /* Dashboard */
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .quick-actions { grid-template-columns: repeat(3, 1fr); }
+
+  /* Controls / Filters */
   .controls-grid, .filters-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Bulk category update */
   .bulk-controls { grid-template-columns: 1fr 1fr; }
   .bulk-controls .bulk-actions { grid-column: 1 / -1; }
-  .bulk-members-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+  /* Bulk attendance */
+  .bulk-members-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Admin add-user form */
   .add-user-form { grid-template-columns: 1fr 1fr; }
   .add-user-form > div:last-child { grid-column: 1 / -1; }
+
+  /* Logs */
   .logs-stats { grid-template-columns: repeat(3, 1fr); }
 
-  /* Membership stats — fewer columns */
+  /* Membership stats */
   .stats-grid { grid-template-columns: repeat(4, 1fr); }
 
-  /* Detailed analytics category cards */
-  .detail-cat-grid { grid-template-columns: repeat(3, 1fr); }
+  /* Detailed analytics */
+  .detail-cat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ── Mobile (≤ 640px) ── */
@@ -1805,7 +1815,7 @@ input.readonly, .form-input.readonly {
   .page-header-clean h1 { font-size: 1.25rem; }
   .page-header-clean p  { font-size: 0.8125rem; }
 
-  /* Hero */
+  /* Hero — stack vertically */
   .home-hero {
     flex-direction: column;
     align-items: flex-start;
@@ -1816,33 +1826,48 @@ input.readonly, .form-input.readonly {
   .hero-title { font-size: 1.25rem; }
   .hero-subtitle { font-size: 0.8125rem; }
 
-  /* Stats */
+  /* Dashboard stats */
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-  .stat-card-home { padding: 1rem; }
+  .stat-card-home { padding: 0.875rem 1rem; gap: 0.75rem; }
   .stat-value-home { font-size: 1.5rem; }
   .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
+  .stat-label-home { font-size: 0.7rem; }
 
-  /* Quick actions */
+  /* Quick actions — 2 columns */
   .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-  .action-button { padding: 1.125rem 0.75rem; font-size: 0.8125rem; }
+  .action-button { padding: 1rem 0.75rem; font-size: 0.8125rem; }
   .action-icon { width: 38px; height: 38px; font-size: 1.125rem; }
 
-  /* Tabs — full width, equal buttons */
-  .attendance-tabs {
-    width: 100%;
-    display: flex;
+  /* Tabs — full width */
+  .attendance-tabs { width: 100%; }
+  .tab-btn { flex: 1; text-align: center; padding: 0.5rem; font-size: 0.8125rem; }
+
+  /* Card headers — allow wrapping */
+  .card-header, .controls-header, .table-header,
+  .bulk-header, .filters-header, .stats-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
   }
-  .tab-btn { flex: 1; text-align: center; padding: 0.5rem 0.5rem; font-size: 0.8125rem; }
+
+  /* Card body padding */
+  .card-body { padding: 1rem; }
 
   /* Forms */
+  .controls-grid, .filters-grid { grid-template-columns: 1fr; }
   .bulk-service-row { grid-template-columns: 1fr; gap: 0.75rem; }
   .bulk-controls { grid-template-columns: 1fr; }
-  .controls-grid, .filters-grid { grid-template-columns: 1fr; }
+  .bulk-controls .bulk-actions { grid-column: 1; }
   .add-user-form { grid-template-columns: 1fr; }
+  .add-user-form > div:last-child { grid-column: 1; }
 
-  /* Bulk members — adaptive min size on mobile */
-  .bulk-members-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.3rem; }
+  /* Bulk attendance grid — 2 columns on mobile */
+  .bulk-members-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; }
   .bulk-member-item { padding: 0.4rem 0.5rem; font-size: 0.8125rem; }
+
+  /* Bulk submit row */
+  .bulk-submit-row { flex-wrap: wrap; }
+  .bulk-submit-row .submit-btn { flex: 1; min-width: 120px; }
 
   /* Membership stats */
   .stats-grid { grid-template-columns: repeat(4, 1fr); }
@@ -1850,46 +1875,74 @@ input.readonly, .form-input.readonly {
   .stat-value { font-size: 1.25rem; }
   .stat-label { font-size: 0.65rem; }
 
-  /* Tables — scrollable on mobile */
+  /* Tables — horizontal scroll */
   .table-container-clean { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .members-table-clean, .logs-table, .users-table { min-width: 520px; }
-  .logs-table { min-width: 640px; }
+  .members-table-clean, .users-table { min-width: 500px; }
+  .logs-table { min-width: 620px; }
 
   /* Logs stats */
-  .logs-stats { grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .logs-stats { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
   .stat-card { padding: 1rem; }
   .stat-number { font-size: 1.5rem; }
 
-  /* Analytics service list */
-  .service-list { grid-template-columns: 1fr; }
+  /* Analytics */
+  .service-list { grid-template-columns: 1fr; gap: 0.75rem; padding: 1rem; }
+  .detail-cat-grid { grid-template-columns: repeat(2, 1fr); }
 
-  /* Modal — full width, bottom-sheet style */
+  /* Modal — bottom sheet on mobile */
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal-content {
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     max-width: 100%;
     width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
   }
+  .modal-body { padding: 1rem; }
 
   /* Pagination */
   .pagination { gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
   .pagination-info { width: 100%; text-align: center; order: -1; }
 
-  /* Streak table — make scrollable */
-  .streaks-container .table-container-clean { overflow-x: auto; }
-  .streaks-container .members-table-clean { min-width: 480px; }
+  /* Buttons — full width where stacked */
+  .modal-buttons { flex-direction: column-reverse; }
+  .modal-buttons .btn-primary,
+  .modal-buttons .btn-secondary { width: 100%; justify-content: center; }
 
-  /* Bulk submit row */
-  .bulk-submit-row { flex-wrap: wrap; }
-  .bulk-submit-row .submit-btn { flex: 1; }
+  /* Form container inside attendance */
+  .form-container { padding: 1rem; }
+  .bulk-attendance-container { padding: 1rem; }
 }
 
 /* ── Small phone (≤ 400px) ── */
 @media (max-width: 400px) {
-  .stats-row { grid-template-columns: 1fr 1fr; }
-  .quick-actions { grid-template-columns: 1fr 1fr; }
-  .bulk-members-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .logs-stats { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .home-container, .attendance-container, .analytics-container,
+  .membership-container, .logs-container, .admin-dashboard-container {
+    padding: 0.75rem;
+    gap: 0.875rem;
+  }
+
+  /* Brand text hidden to save space */
   .navbar-brand span { display: none; }
+
+  /* Stats — stay 2 col but smaller */
+  .stats-row { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .stat-card-home { padding: 0.75rem; gap: 0.5rem; }
+  .stat-value-home { font-size: 1.25rem; }
+
+  /* Quick actions — 2 col */
+  .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .action-button { padding: 0.875rem 0.5rem; font-size: 0.75rem; }
+  .action-icon { width: 32px; height: 32px; font-size: 1rem; }
+
+  /* Bulk — 1 column on very small */
+  .bulk-members-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+
+  /* Logs stats — 1 column */
+  .logs-stats { grid-template-columns: 1fr; }
+
+  /* Membership stats — 3 or 4 col with tiny text */
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-label { font-size: 0.6rem; }
+  .stat-value { font-size: 1.1rem; }
 }

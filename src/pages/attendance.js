@@ -61,7 +61,7 @@ export default function AttendanceForm({ fetchAttendance }) {
         const list = snapshot.docs.map((doc) => doc.data());
         const seen = new Set();
         const deduped = list.filter((m) => {
-          const key = m.name.toLowerCase().trim();
+          const key = m.name.toLowerCase().trim().replace(/\s+/g, ' ');
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
