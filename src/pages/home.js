@@ -93,14 +93,16 @@ export default function Home() {
   const handleReportSubmit = (e) => {
     e.preventDefault();
     let start = null, end = null;
-    if (rangeMode === "month" && selectedMonth) {
-      const [y, m] = selectedMonth.split("-");
-      const last = new Date(Number(y), Number(m), 0).getDate();
-      start = `${y}-${m}-01`;
-      end   = `${y}-${m}-${String(last).padStart(2, "0")}`;
-    } else if (rangeMode === "custom") {
-      start = startDate || null;
-      end   = endDate   || null;
+    if (!serviceName) {
+      if (rangeMode === "month" && selectedMonth) {
+        const [y, m] = selectedMonth.split("-");
+        const last = new Date(Number(y), Number(m), 0).getDate();
+        start = `${y}-${m}-01`;
+        end   = `${y}-${m}-${String(last).padStart(2, "0")}`;
+      } else if (rangeMode === "custom") {
+        start = startDate || null;
+        end   = endDate   || null;
+      }
     }
     generateReport(serviceName || null, reportFormat, start, end);
     setIsModalOpen(false);
@@ -208,29 +210,33 @@ export default function Home() {
                       </select>
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Period</label>
-                      <select value={rangeMode} onChange={(e) => setRangeMode(e.target.value)}>
-                        <option value="month">Specific Month</option>
-                        <option value="custom">Custom Date Range</option>
-                        <option value="all">All Time</option>
-                      </select>
-                    </div>
+                    {!serviceName && (
+                      <>
+                        <div className="form-group">
+                          <label className="form-label">Period</label>
+                          <select value={rangeMode} onChange={(e) => setRangeMode(e.target.value)}>
+                            <option value="month">Specific Month</option>
+                            <option value="custom">Custom Date Range</option>
+                            <option value="all">All Time</option>
+                          </select>
+                        </div>
 
-                    {rangeMode === "month" && (
-                      <div className="form-group">
-                        <label className="form-label">Month</label>
-                        <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} required />
-                      </div>
-                    )}
+                        {rangeMode === "month" && (
+                          <div className="form-group">
+                            <label className="form-label">Month</label>
+                            <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} required />
+                          </div>
+                        )}
 
-                    {rangeMode === "custom" && (
-                      <div className="form-group">
-                        <label className="form-label">From</label>
-                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                        <label className="form-label" style={{ marginTop: "0.5rem" }}>To</label>
-                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                      </div>
+                        {rangeMode === "custom" && (
+                          <div className="form-group">
+                            <label className="form-label">From</label>
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                            <label className="form-label" style={{ marginTop: "0.5rem" }}>To</label>
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     <div className="form-group">
