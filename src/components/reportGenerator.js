@@ -329,7 +329,7 @@ const generateReport = async (serviceName, format = "word", startDate = null, en
           dataCell(svc || "—", 54),
           dataCell(total, 18, AlignmentType.CENTER, true),
         ],
-        ...(i % 2 === 0 ? {} : {
+        ...(idx2 % 2 === 0 ? {} : {
           shading: { fill: "F5F5F5" }
         }),
       });
