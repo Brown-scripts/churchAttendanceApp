@@ -108,61 +108,62 @@ const Auth = () => {
           </p>
         </div>
 
-        {error && (
-          <div className="error-banner">
-            <span>{error}</span>
-          </div>
-        )}
-
-        {message && (
-          <div className="success-banner">
-            <span>{message}</span>
-          </div>
-        )}
-
-        <form className="auth-form" onSubmit={(e) => { e.preventDefault(); handleAuth(); }}>
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              className="form-input"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          {mode !== "forgot" && (
-            <div className="form-group">
-              <label htmlFor="password" className="form-label">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                className="form-input"
-                placeholder={mode === "register" ? "Create a password" : "Enter your password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+        <div className="auth-body">
+          {error && (
+            <div className="auth-error">
+              <span>{error}</span>
             </div>
           )}
 
-          <button type="submit" className="btn-primary auth-submit">
-            {mode === "login"
-              ? "Sign In"
-              : mode === "register"
-              ? "Create Account"
-              : "Send Reset Email"}
-          </button>
-        </form>
+          {message && (
+            <div className="success-banner">
+              <span>{message}</span>
+            </div>
+          )}
 
-        <div className="auth-links">
+          <form className="auth-form" onSubmit={(e) => { e.preventDefault(); handleAuth(); }}>
+            <div className="auth-input-group">
+              <label htmlFor="email" className="auth-label">
+                Email Address
+              </label>
+              <input
+                type="email"
+                id="email"
+                className="auth-input"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            {mode !== "forgot" && (
+              <div className="auth-input-group">
+                <label htmlFor="password" className="auth-label">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  className="auth-input"
+                  placeholder={mode === "register" ? "Create a password" : "Enter your password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
+            <button type="submit" className="auth-btn">
+              {mode === "login"
+                ? "Sign In"
+                : mode === "register"
+                ? "Create Account"
+                : "Send Reset Email"}
+            </button>
+          </form>
+
+          <div className="auth-links">
           {mode === "login" && (
             <>
               <button
@@ -190,30 +191,31 @@ const Auth = () => {
           )}
         </div>
 
-        {mode === "register" && (
-          <div className="auth-notice">
-            <p>
-              <strong>Registration Requirements:</strong>
-            </p>
-            <ul style={{ margin: "var(--space-2) 0 0 var(--space-4)", paddingLeft: 0 }}>
-              <li>Your email must be pre-approved by an administrator</li>
-              <li>Password must be at least 6 characters long</li>
-              <li>You will create your own password during registration</li>
-            </ul>
-            <p style={{ marginTop: "var(--space-3)" }}>
-              If your email is not approved, please contact your administrator to add it to the system.
-            </p>
-          </div>
-        )}
+          {mode === "register" && (
+            <div className="auth-notice">
+              <p>
+                <strong>Registration Requirements:</strong>
+              </p>
+              <ul style={{ margin: "0.5rem 0 0 1rem", paddingLeft: 0 }}>
+                <li>Your email must be pre-approved by an administrator</li>
+                <li>Password must be at least 6 characters long</li>
+                <li>You will create your own password during registration</li>
+              </ul>
+              <p style={{ marginTop: "0.75rem" }}>
+                If your email is not approved, please contact your administrator to add it to the system.
+              </p>
+            </div>
+          )}
 
-        {mode === "forgot" && (
-          <div className="auth-notice">
-            <p>
-              <strong>Password Reset:</strong> Enter your email address and we'll send you a link to reset your password.
-              Make sure to check your spam folder if you don't see the email.
-            </p>
-          </div>
-        )}
+          {mode === "forgot" && (
+            <div className="auth-notice">
+              <p>
+                <strong>Password Reset:</strong> Enter your email address and we'll send you a link to reset your password.
+                Make sure to check your spam folder if you don't see the email.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

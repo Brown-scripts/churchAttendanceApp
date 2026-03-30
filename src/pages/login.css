@@ -29,7 +29,7 @@
   letter-spacing: 0.5px;
 }
 
-.login-input {
+.login-container .login-input {
   width: 100%;
   padding: 14px 18px;
   margin-bottom: 18px;
@@ -40,14 +40,14 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.login-input:focus {
+.login-container .login-input:focus {
   outline: none;
   border-color: #4361ee;
   background-color: #fff;
   box-shadow: 0 0 6px rgba(67, 97, 238, 0.12);
 }
 
-.login-button {
+.login-container .login-button {
   width: 100%;
   padding: 14px 0;
   background: linear-gradient(135deg, #43aa8b, #4361ee);

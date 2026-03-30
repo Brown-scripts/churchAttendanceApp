@@ -123,11 +123,19 @@ p { margin: 0; color: var(--text-muted); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-button { font-family: var(--font); cursor: pointer; border: none; outline: none; }
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
 input, select, textarea {
   font-family: var(--font);
   font-size: 0.9rem;
   outline: none;
+  padding: 0.5rem 0.75rem;
 }
 
 /* Utility */
@@ -388,7 +396,8 @@ input, select, textarea {
 /* Reuse existing class names for card-like containers */
 .controls-card, .bulk-update-card, .stats-card,
 .table-card, .filters-card, .logs-table-container,
-.form-container, .chart-container, .services-section {
+.form-container, .chart-container, .services-section,
+.member-toolbar {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -908,6 +917,60 @@ input.readonly, .form-input.readonly {
   border-bottom: none;
 }
 
+/* TanStack table enhancements */
+.tanstack-table th.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+.tanstack-table th.sortable-header:hover {
+  background: var(--surface-2);
+}
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.row-striped { background: var(--surface-2); }
+.row-striped:hover { background: var(--border) !important; }
+
+/* Inline cell editing */
+.cell-editable {
+  cursor: pointer;
+  padding: 0.25rem 0.375rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--t);
+}
+.cell-editable:hover {
+  background: var(--teal-50);
+}
+.dark-theme .cell-editable:hover {
+  background: rgba(38,166,154,.1);
+}
+.cell-edit-input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  background: var(--surface);
+  color: var(--text-base);
+  box-shadow: 0 0 0 3px rgba(0,150,136,.1);
+}
+.cell-edit-select {
+  padding: 0.3rem 0.5rem;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  background: var(--surface);
+  color: var(--text-base);
+  box-shadow: 0 0 0 3px rgba(0,150,136,.1);
+}
+.edit-hint {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  font-style: italic;
+}
+
 /* Table section headers inside card */
 .table-header {
   display: flex;
@@ -973,6 +1036,43 @@ input.readonly, .form-input.readonly {
 .action-primary  { background: var(--teal-50);   color: var(--teal-700);  }
 .action-secondary{ background: var(--gray-100);  color: var(--gray-600);  }
 .action-default  { background: var(--gray-100);  color: var(--gray-500);  }
+
+/* ── 17b. Member Toolbar (Add / Import / Template) ────────── */
+.member-toolbar {
+  padding: 1rem 1.5rem;
+}
+.toolbar-buttons {
+  display: flex;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+.import-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.import-file-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.add-member-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.add-member-form .form-group {
+  flex: 1;
+  min-width: 150px;
+}
+.add-member-form .btn-primary {
+  white-space: nowrap;
+  align-self: flex-end;
+  margin-bottom: 0;
+}
 
 /* ── 18. Controls / Filters ─────────────────────────────────── */
 .controls-header, .filters-header, .bulk-header {

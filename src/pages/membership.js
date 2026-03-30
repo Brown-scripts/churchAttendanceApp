@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, query } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -6,6 +6,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { AdminOnly } from '../components/RoleBasedAccess';
 import Navigation from '../components/Navigation';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+} from '@tanstack/react-table';
 
 const categories = ['L100', 'L200', 'L300', 'L400', 'Worker', 'Other', 'New'];
 
@@ -48,16 +55,22 @@ const Membership = () => {
   const [activeTab, setActiveTab] = useState('members');
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingMember, setEditingMember] = useState(null);
-  const [newCategory, setNewCategory] = useState('');
-  const [editingName, setEditingName] = useState(null);
-  const [newName, setNewName] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
-  const [sortBy, setSortBy] = useState('name');
-  const [sortOrder, setSortOrder] = useState('asc');
   const [bulkFromCategory, setBulkFromCategory] = useState('');
   const [bulkToCategory, setBulkToCategory] = useState('');
+  const [sorting, setSorting] = useState([{ id: 'name', desc: false }]);
+  const [globalFilter, setGlobalFilter] = useState('');
+
+  // Add member state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addCategory, setAddCategory] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+
+  // CSV import state
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Streak state
   const [streaks, setStreaks] = useState([]);
@@ -167,8 +180,6 @@ const Membership = () => {
         newCategory: category,
       });
 
-      setEditingMember(null);
-      setNewCategory('');
       alert(`Successfully updated ${member.name}'s category to ${category}.`);
       await fetchMembers();
     } catch (error) {
@@ -215,8 +226,6 @@ const Membership = () => {
         newName: trimmedNewName,
       });
 
-      setEditingName(null);
-      setNewName('');
       alert(`Successfully updated member name to "${trimmedNewName}".`);
       await fetchMembers();
     } catch (error) {
@@ -288,19 +297,211 @@ const Membership = () => {
     }
   };
 
-  const filteredAndSortedMembers = members
-    .filter(member => {
-      const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = filterCategory === 'All' || member.category === filterCategory;
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      let aValue = a[sortBy];
-      let bValue = b[sortBy];
-      if (sortBy === 'name') { aValue = aValue.toLowerCase(); bValue = bValue.toLowerCase(); }
-      if (sortOrder === 'asc') return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      else return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-    });
+  const handleAddMember = async () => {
+    const trimmed = addName.trim();
+    if (!trimmed || !addCategory) { alert('Please enter a name and select a category.'); return; }
+    const isDuplicate = members.some(m => normalizeName(m.name) === normalizeName(trimmed));
+    if (isDuplicate) { alert('A member with this name already exists.'); return; }
+    setAddLoading(true);
+    try {
+      await addDoc(collection(db, 'membership'), { name: trimmed, category: addCategory });
+      await addDoc(collection(db, 'logs'), {
+        action: 'Member Added',
+        details: `Added new member: ${trimmed} (${addCategory})`,
+        user: user?.email || 'Unknown',
+        timestamp: serverTimestamp(),
+        memberName: trimmed,
+      });
+      setAddName('');
+      setAddCategory('');
+      setShowAddForm(false);
+      await fetchMembers();
+    } catch (err) {
+      console.error('Error adding member:', err);
+      alert('Failed to add member.');
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const csv = 'name,category\nJohn Doe,L100\nJane Smith,L200\n';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'members_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCSVImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      setImportLoading(true);
+      setImportResult(null);
+      try {
+        const text = evt.target.result;
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) { alert('CSV file is empty or has no data rows.'); return; }
+
+        // Parse header
+        const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+        const nameIdx = header.indexOf('name');
+        const catIdx = header.indexOf('category');
+        if (nameIdx === -1) { alert('CSV must have a "name" column.'); return; }
+
+        const existingNames = new Set(members.map(m => normalizeName(m.name)));
+        let added = 0, skipped = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+          const name = cols[nameIdx]?.trim();
+          const category = catIdx !== -1 ? cols[catIdx]?.trim() : '';
+          if (!name) continue;
+
+          if (existingNames.has(normalizeName(name))) { skipped++; continue; }
+
+          const validCat = categories.includes(category) ? category : 'New';
+          await addDoc(collection(db, 'membership'), { name, category: validCat });
+          existingNames.add(normalizeName(name));
+          added++;
+        }
+
+        await addDoc(collection(db, 'logs'), {
+          action: 'CSV Import',
+          details: `Imported ${added} members from CSV (${skipped} duplicates skipped)`,
+          user: user?.email || 'Unknown',
+          timestamp: serverTimestamp(),
+        });
+
+        setImportResult({ added, skipped });
+        setTimeout(() => setImportResult(null), 6000);
+        await fetchMembers();
+      } catch (err) {
+        console.error('Error importing CSV:', err);
+        alert('Failed to import CSV.');
+      } finally {
+        setImportLoading(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Filtered data for TanStack table
+  const filteredMembers = useMemo(() => {
+    if (filterCategory === 'All') return members;
+    return members.filter(m => m.category === filterCategory);
+  }, [members, filterCategory]);
+
+  // Editable cell for name
+  const EditableNameCell = ({ getValue, row }) => {
+    const initialValue = getValue();
+    const [editing, setEditing] = useState(false);
+    const [value, setValue] = useState(initialValue);
+
+    if (!isAdmin()) return <span>{initialValue}</span>;
+
+    if (editing) {
+      return (
+        <input
+          className="cell-edit-input"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => {
+            if (value.trim() && value.trim() !== initialValue) {
+              handleNameChange(row.original, value.trim());
+            }
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if (value.trim() && value.trim() !== initialValue) {
+                handleNameChange(row.original, value.trim());
+              }
+              setEditing(false);
+            }
+            if (e.key === 'Escape') { setValue(initialValue); setEditing(false); }
+          }}
+          autoFocus
+        />
+      );
+    }
+    return (
+      <span className="cell-editable" onClick={() => { setValue(initialValue); setEditing(true); }}>
+        {initialValue}
+      </span>
+    );
+  };
+
+  // Editable cell for category
+  const EditableCategoryCell = ({ getValue, row }) => {
+    const initialValue = getValue();
+    const [editing, setEditing] = useState(false);
+
+    if (!isAdmin()) {
+      return <span className={`category-badge category-${initialValue?.toLowerCase()}`}>{initialValue}</span>;
+    }
+
+    if (editing) {
+      return (
+        <select
+          className="cell-edit-select"
+          defaultValue={initialValue}
+          onChange={(e) => {
+            if (e.target.value !== initialValue) {
+              handleCategoryChange(row.original, e.target.value);
+            }
+            setEditing(false);
+          }}
+          onBlur={() => setEditing(false)}
+          autoFocus
+        >
+          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+        </select>
+      );
+    }
+    return (
+      <span
+        className={`category-badge category-${initialValue?.toLowerCase()} cell-editable`}
+        onClick={() => setEditing(true)}
+      >
+        {initialValue}
+      </span>
+    );
+  };
+
+  // TanStack columns
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'name',
+      header: 'Member Name',
+      cell: (props) => <EditableNameCell {...props} />,
+      size: 250,
+    },
+    {
+      accessorKey: 'category',
+      header: 'Category',
+      cell: (props) => <EditableCategoryCell {...props} />,
+      size: 140,
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [members, isAdmin]);
+
+  const table = useReactTable({
+    data: filteredMembers,
+    columns,
+    state: { sorting, globalFilter },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: 'includesString',
+  });
 
   const filteredStreaks = streaks
     .filter(s => {
@@ -413,7 +614,91 @@ const Membership = () => {
           {/* ── MEMBERS TAB ── */}
           {activeTab === 'members' && (
             <>
-              {/* Controls Card */}
+              {/* Add Member / Import toolbar — Admin Only */}
+              <AdminOnly>
+                <div className="member-toolbar">
+                  <div className="toolbar-buttons">
+                    <button className="btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
+                      {showAddForm ? '— Cancel' : '+ Add Member'}
+                    </button>
+                    <button className="btn-secondary" onClick={() => setShowImportModal(true)}>
+                      Import CSV
+                    </button>
+                  </div>
+                  {importResult && (
+                    <div className="success-banner" style={{ marginTop: '0.75rem' }}>
+                      <span>Imported {importResult.added} members. {importResult.skipped > 0 ? `${importResult.skipped} duplicates skipped.` : ''}</span>
+                      <button onClick={() => setImportResult(null)} className="success-close">×</button>
+                    </div>
+                  )}
+                  {showAddForm && (
+                    <div className="add-member-form">
+                      <div className="form-group">
+                        <label className="form-label">Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Member name..."
+                          value={addName}
+                          onChange={(e) => setAddName(e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Category</label>
+                        <select className="form-select" value={addCategory} onChange={(e) => setAddCategory(e.target.value)}>
+                          <option value="">Select category...</option>
+                          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                      </div>
+                      <button className="btn-primary" onClick={handleAddMember} disabled={addLoading || !addName.trim() || !addCategory}>
+                        {addLoading ? 'Adding...' : 'Add Member'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </AdminOnly>
+
+              {/* Import CSV Modal */}
+              {showImportModal && (
+                <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
+                  <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-header">
+                      <h2>Import Members</h2>
+                    </div>
+                    <div className="modal-body">
+                      <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
+                        Upload a CSV file with <strong>name</strong> and <strong>category</strong> columns. Duplicate names will be skipped automatically.
+                      </p>
+                      <div className="import-modal-actions">
+                        <button className="btn-secondary" onClick={() => { downloadTemplate(); }}>
+                          Download Template
+                        </button>
+                        <label className="btn-primary import-file-btn">
+                          {importLoading ? 'Importing...' : 'Select CSV File'}
+                          <input
+                            type="file"
+                            accept=".csv"
+                            onChange={(e) => { handleCSVImport(e); setShowImportModal(false); }}
+                            hidden
+                            disabled={importLoading}
+                          />
+                        </label>
+                      </div>
+                      <div style={{ marginTop: '1.25rem', padding: '0.875rem', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <strong>Template format:</strong><br />
+                        name,category<br />
+                        John Doe,L100<br />
+                        Jane Smith,L200
+                      </div>
+                    </div>
+                    <div className="modal-buttons" style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+                      <button className="btn-secondary" onClick={() => setShowImportModal(false)}>Close</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Search & Filter Bar */}
               <div className="controls-card">
                 <div className="controls-header">
                   <h3>Search & Filter</h3>
@@ -425,8 +710,8 @@ const Membership = () => {
                     <input
                       type="text"
                       placeholder="Search by name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={globalFilter ?? ''}
+                      onChange={(e) => setGlobalFilter(e.target.value)}
                       className="search-input-clean"
                     />
                   </div>
@@ -441,23 +726,6 @@ const Membership = () => {
                       {categories.map(category => (
                         <option key={category} value={category}>{category}</option>
                       ))}
-                    </select>
-                  </div>
-                  <div className="control-group">
-                    <label>Sort Order</label>
-                    <select
-                      value={`${sortBy}-${sortOrder}`}
-                      onChange={(e) => {
-                        const [field, order] = e.target.value.split('-');
-                        setSortBy(field);
-                        setSortOrder(order);
-                      }}
-                      className="select-clean"
-                    >
-                      <option value="name-asc">Name (A-Z)</option>
-                      <option value="name-desc">Name (Z-A)</option>
-                      <option value="category-asc">Category (A-Z)</option>
-                      <option value="category-desc">Category (Z-A)</option>
                     </select>
                   </div>
                 </div>
@@ -503,94 +771,64 @@ const Membership = () => {
                 <div className="stats-grid">
                   <div className="stat-item total">
                     <div className="stat-label">Total Members</div>
-                    <div className="stat-value">{filteredAndSortedMembers.length}</div>
+                    <div className="stat-value">{table.getRowModel().rows.length}</div>
                   </div>
                   {categories.map(category => (
                     <div key={category} className="stat-item">
                       <div className="stat-label">{category}</div>
-                      <div className="stat-value">{filteredAndSortedMembers.filter(m => m.category === category).length}</div>
+                      <div className="stat-value">{filteredMembers.filter(m => m.category === category).length}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Members Table */}
+              {/* TanStack Members Table */}
               <div className="table-card">
                 <div className="table-header">
                   <h3>Members List</h3>
-                  <div className="table-info">Showing {filteredAndSortedMembers.length} members</div>
+                  <div className="table-info">
+                    {table.getRowModel().rows.length} members
+                    {isAdmin() && <span className="edit-hint"> — click any cell to edit</span>}
+                  </div>
                 </div>
                 <div className="table-container-clean">
-                  <table className="members-table-clean">
+                  <table className="members-table-clean tanstack-table">
                     <thead>
-                      <tr>
-                        <th className="name-col">Member Name</th>
-                        <th className="category-col">Category</th>
-                        <th className="actions-col">Actions</th>
-                      </tr>
+                      {table.getHeaderGroups().map(headerGroup => (
+                        <tr key={headerGroup.id}>
+                          <th style={{ width: 50, textAlign: 'center' }}>#</th>
+                          {headerGroup.headers.map(header => (
+                            <th
+                              key={header.id}
+                              onClick={header.column.getToggleSortingHandler()}
+                              className={header.column.getCanSort() ? 'sortable-header' : ''}
+                              style={{ width: header.getSize() }}
+                            >
+                              <span className="th-content">
+                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                {header.column.getIsSorted() === 'asc' ? ' ▲' :
+                                 header.column.getIsSorted() === 'desc' ? ' ▼' : ''}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
                     </thead>
                     <tbody>
-                      {filteredAndSortedMembers.map((member) => (
-                        <tr key={member.normalizedName}>
-                          <td className="member-name">
-                            {editingName === member.name ? (
-                              <div className="edit-name-controls">
-                                <input
-                                  type="text"
-                                  value={newName}
-                                  onChange={(e) => setNewName(e.target.value)}
-                                  className="name-input"
-                                  placeholder="Enter new name..."
-                                />
-                                <button onClick={() => handleNameChange(member, newName)} disabled={!newName.trim()} className="save-btn">Save</button>
-                                <button onClick={() => { setEditingName(null); setNewName(''); }} className="cancel-btn">Cancel</button>
-                              </div>
-                            ) : (
-                              <div className="name-display">
-                                <span>{member.name}</span>
-                                <AdminOnly>
-                                  <button
-                                    onClick={() => { setEditingName(member.name); setNewName(member.name); }}
-                                    className="edit-name-btn"
-                                    title="Edit name (Admin only)"
-                                  >✏️</button>
-                                </AdminOnly>
-                              </div>
-                            )}
-                          </td>
-                          <td className="member-category">
-                            {editingMember === member.name ? (
-                              <div className="edit-category-controls">
-                                <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="select-clean">
-                                  <option value="">Select category...</option>
-                                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                </select>
-                                <button onClick={() => handleCategoryChange(member, newCategory)} disabled={!newCategory} className="save-btn">Save</button>
-                                <button onClick={() => { setEditingMember(null); setNewCategory(''); }} className="cancel-btn">Cancel</button>
-                              </div>
-                            ) : (
-                              <span className={`category-badge category-${member.category.toLowerCase()}`}>{member.category}</span>
-                            )}
-                          </td>
-                          <td className="member-actions">
-                            {editingMember !== member.name && (
-                              <AdminOnly>
-                                <button
-                                  onClick={() => { setEditingMember(member.name); setNewCategory(member.category); }}
-                                  className="btn-edit"
-                                >Edit</button>
-                              </AdminOnly>
-                            )}
-                            {!isAdmin() && editingMember !== member.name && (
-                              <span className="text-muted">View Only</span>
-                            )}
-                          </td>
+                      {table.getRowModel().rows.map((row, idx) => (
+                        <tr key={row.id} className={idx % 2 === 1 ? 'row-striped' : ''}>
+                          <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{idx + 1}</td>
+                          {row.getVisibleCells().map(cell => (
+                            <td key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                {filteredAndSortedMembers.length === 0 && (
+                {table.getRowModel().rows.length === 0 && (
                   <div className="no-members-card"><p>No members found matching your criteria.</p></div>
                 )}
               </div>
