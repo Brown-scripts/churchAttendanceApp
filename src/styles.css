@@ -293,12 +293,17 @@ input, select, textarea {
 
 .theme-toggle {
   width: 34px; height: 34px;
+  padding: 0;
   display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-muted);
   transition: all var(--t);
+  flex-shrink: 0;
+}
+.theme-toggle svg {
+  display: block;
   flex-shrink: 0;
 }
 .theme-toggle:hover { background: var(--border); color: var(--text-base); }
