@@ -91,6 +91,14 @@ const Auth = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <button
+          type="button"
+          className="auth-back-btn"
+          onClick={() => navigate("/welcome")}
+          aria-label="Back to home"
+        >
+          ← Back
+        </button>
         <div className="auth-header">
           <h1 className="auth-title">
             {mode === "login"

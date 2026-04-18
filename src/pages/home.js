@@ -1,11 +1,91 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
 import Navigation from "../components/Navigation";
 import logo from "../assets/image.png";
 import generateReport from "../components/reportGenerator";
+import { getServiceType } from "../utils/serviceType";
+
+const normalizeName = (n) => (n || "").toLowerCase().trim();
+
+// Compute per-type streaks (shared logic with membership page)
+const computeStreaks = (serviceDates, memberDatesSet) => {
+  let currentStreak = 0;
+  let longestStreak = 0;
+  let tempStreak = 0;
+  for (const date of serviceDates) {
+    if (memberDatesSet.has(date)) {
+      tempStreak++;
+      if (tempStreak > longestStreak) longestStreak = tempStreak;
+    } else {
+      tempStreak = 0;
+    }
+  }
+  for (let i = serviceDates.length - 1; i >= 0; i--) {
+    if (memberDatesSet.has(serviceDates[i])) currentStreak++;
+    else break;
+  }
+  return { currentStreak, longestStreak };
+};
+
+// Animated counter hook
+const useAnimatedCount = (target, duration = 900) => {
+  const [value, setValue] = useState(0);
+  const startRef = useRef(null);
+  useEffect(() => {
+    if (target === 0 || target == null) { setValue(0); return; }
+    startRef.current = null;
+    let frameId;
+    const step = (ts) => {
+      if (!startRef.current) startRef.current = ts;
+      const progress = Math.min((ts - startRef.current) / duration, 1);
+      // ease-out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.floor(eased * target));
+      if (progress < 1) frameId = requestAnimationFrame(step);
+      else setValue(target);
+    };
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [target, duration]);
+  return value;
+};
+
+const AnimatedNum = ({ value, loading }) => {
+  const animated = useAnimatedCount(loading ? 0 : value);
+  if (loading) return <>—</>;
+  return <>{animated.toLocaleString()}</>;
+};
+
+const ACTION_LABELS = {
+  'Attendance Added':      { label: 'marked present', icon: '+', color: 'teal' },
+  'Bulk Attendance Added': { label: 'bulk attendance', icon: '++', color: 'teal' },
+  'Attendance Removed':    { label: 'removed', icon: '–', color: 'amber' },
+  'Category Change':       { label: 'category update', icon: '↻', color: 'amber' },
+  'Name Change':           { label: 'renamed', icon: '✎', color: 'blue' },
+  'Member Added':          { label: 'added member', icon: '👤', color: 'teal' },
+  'CSV Import':            { label: 'CSV import', icon: '⤓', color: 'teal' },
+  'User Added':            { label: 'user added', icon: '👤', color: 'teal' },
+  'User Removed':          { label: 'user removed', icon: '👤–', color: 'gray' },
+  'User Role Updated':     { label: 'role updated', icon: '⚙', color: 'blue' },
+};
+
+const relativeTime = (date) => {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+};
+
+const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -21,7 +101,6 @@ export default function Home() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Dashboard stats
   const [stats, setStats] = useState({
     totalMembers: 0,
     totalRecords: 0,
@@ -30,36 +109,84 @@ export default function Home() {
     loading: true,
   });
 
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [topStreaks, setTopStreaks] = useState([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+
   const navigate = useNavigate();
   const auth = getAuth();
+
+  const today = new Date();
+  const currentDayName = daysOfWeek[today.getDay()];
+  const isSundayOrMonday = today.getDay() === 0 || today.getDay() === 1;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribe();
   }, [auth]);
 
-  // Fetch dashboard stats once
+  // Fetch all dashboard data in parallel
   useEffect(() => {
     const load = async () => {
       try {
-        const [memberSnap, attendanceSnap] = await Promise.all([
+        const [memberSnap, attendanceSnap, logSnap] = await Promise.all([
           getDocs(collection(db, "membership")),
           getDocs(collection(db, "attendance")),
+          getDocs(query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(10))),
         ]);
 
-        // Deduplicate members by normalised name
-        const memberSet = new Set(memberSnap.docs.map(d => d.data().name?.toLowerCase().trim()));
+        const memberSet = new Set(
+          memberSnap.docs.map(d => normalizeName(d.data().name)).filter(Boolean)
+        );
 
         const now = new Date();
         const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
         const serviceSet = new Set();
         let thisMonth = 0;
 
+        // Compute streaks from attendance (per service type)
+        const sundayDates = new Set();
+        const mondayDates = new Set();
+        const memberAttend = new Map();
+
         attendanceSnap.forEach(d => {
-          const { serviceName, date } = d.data();
+          const data = d.data();
+          const { serviceName, date, name, category } = data;
           if (serviceName) serviceSet.add(serviceName.trim());
           if (date && date.startsWith(thisMonthStr)) thisMonth++;
+
+          const type = getServiceType(data);
+          if (type === 'Sunday') sundayDates.add(date);
+          else if (type === 'Monday') mondayDates.add(date);
+
+          const key = normalizeName(name);
+          if (!memberAttend.has(key)) {
+            memberAttend.set(key, { name: name?.trim(), category, sun: new Set(), mon: new Set() });
+          }
+          const entry = memberAttend.get(key);
+          if (type === 'Sunday') entry.sun.add(date);
+          else if (type === 'Monday') entry.mon.add(date);
         });
+
+        const sunSorted = Array.from(sundayDates).sort();
+        const monSorted = Array.from(mondayDates).sort();
+
+        const streakList = Array.from(memberAttend.values())
+          .map(m => {
+            const s = computeStreaks(sunSorted, m.sun);
+            const mo = computeStreaks(monSorted, m.mon);
+            return {
+              name: m.name,
+              category: m.category,
+              currentStreak: Math.max(s.currentStreak, mo.currentStreak),
+              type: s.currentStreak >= mo.currentStreak ? 'Sunday' : 'Monday',
+            };
+          })
+          .filter(s => s.currentStreak > 0)
+          .sort((a, b) => b.currentStreak - a.currentStreak)
+          .slice(0, 5);
+
+        setTopStreaks(streakList);
 
         setStats({
           totalMembers: memberSet.size,
@@ -68,9 +195,19 @@ export default function Home() {
           totalServices: serviceSet.size,
           loading: false,
         });
+
+        setRecentActivity(
+          logSnap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+            timestamp: d.data().timestamp?.toDate() || new Date(),
+          }))
+        );
+        setFeedLoading(false);
       } catch (err) {
-        console.error("Stats error:", err);
+        console.error("Dashboard load error:", err);
         setStats(s => ({ ...s, loading: false }));
+        setFeedLoading(false);
       }
     };
     load();
@@ -117,23 +254,32 @@ export default function Home() {
       <div className="page-content">
         <div className="home-container">
 
-          {/* Hero */}
+          {/* Hero banner — personalized */}
           <div className="home-hero">
             <img src={logo} alt="Church Logo" className="hero-logo" />
             <div className="hero-text">
-              <h1 className="hero-title">Universal Radiant Family</h1>
-              <p className="hero-subtitle">Zone 1 — Attendance Management System</p>
+              <h1 className="hero-title">
+                {user?.email ? `Welcome back, ${user.email.split('@')[0]}` : 'Universal Radiant Family'}
+              </h1>
+              <p className="hero-subtitle">
+                It's {currentDayName} · {today.toLocaleDateString("default", { month: "long", day: "numeric", year: "numeric" })}
+              </p>
             </div>
+            {isSundayOrMonday && (
+              <button className="hero-today-btn" onClick={() => navigate("/attendance")}>
+                Mark today's attendance →
+              </button>
+            )}
           </div>
 
-          {/* Stats row */}
+          {/* Stats row with animated counters */}
           <div className="stats-row">
             <div className="stat-card-home">
               <div className="stat-icon blue">👥</div>
               <div className="stat-content">
                 <div className="stat-label-home">Total Members</div>
                 <div className="stat-value-home">
-                  {stats.loading ? "—" : stats.totalMembers}
+                  <AnimatedNum value={stats.totalMembers} loading={stats.loading} />
                 </div>
               </div>
             </div>
@@ -142,7 +288,7 @@ export default function Home() {
               <div className="stat-content">
                 <div className="stat-label-home">Attendance Records</div>
                 <div className="stat-value-home">
-                  {stats.loading ? "—" : stats.totalRecords.toLocaleString()}
+                  <AnimatedNum value={stats.totalRecords} loading={stats.loading} />
                 </div>
               </div>
             </div>
@@ -151,7 +297,7 @@ export default function Home() {
               <div className="stat-content">
                 <div className="stat-label-home">This Month</div>
                 <div className="stat-value-home">
-                  {stats.loading ? "—" : stats.thisMonthCount}
+                  <AnimatedNum value={stats.thisMonthCount} loading={stats.loading} />
                 </div>
                 <div className="stat-sub">{monthLabel}</div>
               </div>
@@ -161,7 +307,7 @@ export default function Home() {
               <div className="stat-content">
                 <div className="stat-label-home">Services</div>
                 <div className="stat-value-home">
-                  {stats.loading ? "—" : stats.totalServices}
+                  <AnimatedNum value={stats.totalServices} loading={stats.loading} />
                 </div>
               </div>
             </div>
@@ -189,6 +335,70 @@ export default function Home() {
               <div className="action-icon amber">📋</div>
               Audit Logs
             </button>
+          </div>
+
+          {/* Two-column insights: activity + streaks */}
+          <div className="home-insights">
+            <div className="insight-card">
+              <div className="insight-header">
+                <h3>Recent Activity</h3>
+                <button className="insight-link" onClick={() => navigate("/logs")}>View all →</button>
+              </div>
+              <div className="insight-body">
+                {feedLoading ? (
+                  <div className="insight-placeholder">Loading...</div>
+                ) : recentActivity.length === 0 ? (
+                  <div className="insight-placeholder">No activity yet.</div>
+                ) : (
+                  <ul className="activity-list">
+                    {recentActivity.map(log => {
+                      const cfg = ACTION_LABELS[log.action] || { label: log.action, icon: '•', color: 'gray' };
+                      return (
+                        <li key={log.id} className="activity-item">
+                          <span className={`activity-dot activity-${cfg.color}`}>{cfg.icon}</span>
+                          <div className="activity-text">
+                            <div className="activity-headline">
+                              <strong>{log.user?.split('@')[0] || 'System'}</strong> · {cfg.label}
+                            </div>
+                            <div className="activity-sub">
+                              {log.memberName || log.serviceName || log.details?.split('.')[0]}
+                            </div>
+                          </div>
+                          <span className="activity-time">{relativeTime(log.timestamp)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="insight-card">
+              <div className="insight-header">
+                <h3>Top Streaks</h3>
+                <button className="insight-link" onClick={() => navigate("/membership")}>View all →</button>
+              </div>
+              <div className="insight-body">
+                {feedLoading ? (
+                  <div className="insight-placeholder">Loading...</div>
+                ) : topStreaks.length === 0 ? (
+                  <div className="insight-placeholder">No streaks yet.</div>
+                ) : (
+                  <ul className="streak-list">
+                    {topStreaks.map((s, i) => (
+                      <li key={s.name + i} className="streak-item">
+                        <span className="streak-rank">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                        <div className="streak-info">
+                          <div className="streak-name">{s.name}</div>
+                          <div className="streak-sub">{s.category} · {s.type}</div>
+                        </div>
+                        <span className="streak-num">🔥 {s.currentStreak}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Report Modal */}

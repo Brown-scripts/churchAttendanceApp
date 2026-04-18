@@ -9,6 +9,7 @@ import DetailedAnalytics from "./pages/detailedAnalytics";
 import Membership from "./pages/membership";
 import Logs from "./pages/logs";
 import AdminDashboard from "./pages/adminDashboard";
+import Landing from "./pages/landing";
 import Auth from "./components/auth";
 import ProtectedRoute from "./components/protectedRoute";
 import "./styles.css";
@@ -21,12 +22,16 @@ export default function App() {
       {/* Navigation Bar (always visible except on login) */}
       <Routes>
         <Route path="/login" element={<Auth />} />
-        <Route 
-          path="/*" 
+        <Route path="/welcome" element={<Landing />} />
+        <Route
+          path="/*"
           element={
             <>
               <Routes>
-                <Route path="/" element={<Home />} />
+                <Route
+                  path="/"
+                  element={<ProtectedRoute redirectTo="/welcome"><Home /></ProtectedRoute>}
+                />
                 <Route 
                   path="/attendance" 
                   element={<ProtectedRoute><Attendance /></ProtectedRoute>} 

@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, query } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { AdminOnly } from '../components/RoleBasedAccess';
 import Navigation from '../components/Navigation';
+import { getServiceType } from '../utils/serviceType';
 import {
   useReactTable,
   getCoreRowModel,
@@ -50,7 +50,7 @@ const computeStreaks = (serviceDates, memberDatesSet) => {
 const Membership = () => {
   const [user] = useAuthState(auth);
   const { isAdmin } = useAuth();
-  const navigate = useNavigate();
+
 
   const [activeTab, setActiveTab] = useState('members');
   const [members, setMembers] = useState([]);
@@ -75,9 +75,19 @@ const Membership = () => {
   // Streak state
   const [streaks, setStreaks] = useState([]);
   const [streaksLoading, setStreaksLoading] = useState(false);
-  const [streakSortBy, setStreakSortBy] = useState('currentStreak');
+  const [streakSortBy, setStreakSortBy] = useState('sundayCurrent');
+  const [streakSortDir, setStreakSortDir] = useState('desc');
   const [streakFilter, setStreakFilter] = useState('All');
   const [streakSearch, setStreakSearch] = useState('');
+
+  const toggleStreakSort = (field) => {
+    if (streakSortBy === field) {
+      setStreakSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    } else {
+      setStreakSortBy(field);
+      setStreakSortDir('desc');
+    }
+  };
 
   const fetchMembers = useCallback(async () => {
     try {
@@ -116,26 +126,54 @@ const Membership = () => {
     try {
       const snap = await getDocs(collection(db, 'attendance'));
 
-      // Build: allServiceDates (unique, across all services), memberAttendance map
-      const serviceDatesSet = new Set();
-      const memberAttendance = new Map(); // normalizedName -> { name, category, dates: Set }
+      // Build per-service-type sets: Sunday dates, Monday dates, member attendance per type
+      const sundayDatesSet = new Set();
+      const mondayDatesSet = new Set();
+      // key -> { name, category, sundayDates: Set, mondayDates: Set }
+      const memberAttendance = new Map();
 
       snap.docs.forEach(d => {
-        const { name, category, date } = d.data();
+        const data = d.data();
+        const { name, category, date } = data;
         if (!name || !date) return;
-        serviceDatesSet.add(date);
+        const type = getServiceType(data);
+        if (type === 'Sunday') sundayDatesSet.add(date);
+        else if (type === 'Monday') mondayDatesSet.add(date);
+
         const key = normalizeName(name);
         if (!memberAttendance.has(key)) {
-          memberAttendance.set(key, { name: name.trim(), category, dates: new Set() });
+          memberAttendance.set(key, {
+            name: name.trim(),
+            category,
+            sundayDates: new Set(),
+            mondayDates: new Set(),
+          });
         }
-        memberAttendance.get(key).dates.add(date);
+        const entry = memberAttendance.get(key);
+        if (type === 'Sunday') entry.sundayDates.add(date);
+        else if (type === 'Monday') entry.mondayDates.add(date);
       });
 
-      const sortedDates = Array.from(serviceDatesSet).sort();
+      const sundayDatesSorted = Array.from(sundayDatesSet).sort();
+      const mondayDatesSorted = Array.from(mondayDatesSet).sort();
 
-      const streakData = Array.from(memberAttendance.values()).map(({ name, category, dates }) => {
-        const { currentStreak, longestStreak } = computeStreaks(sortedDates, dates);
-        return { name, category, currentStreak, longestStreak, totalAttended: dates.size };
+      const streakData = Array.from(memberAttendance.values()).map(({ name, category, sundayDates, mondayDates }) => {
+        const sun = computeStreaks(sundayDatesSorted, sundayDates);
+        const mon = computeStreaks(mondayDatesSorted, mondayDates);
+        // Use the better of the two as the "current/longest" for sorting convenience
+        const currentStreak = Math.max(sun.currentStreak, mon.currentStreak);
+        const longestStreak = Math.max(sun.longestStreak, mon.longestStreak);
+        return {
+          name,
+          category,
+          currentStreak,
+          longestStreak,
+          sundayCurrent: sun.currentStreak,
+          sundayLongest: sun.longestStreak,
+          mondayCurrent: mon.currentStreak,
+          mondayLongest: mon.longestStreak,
+          totalAttended: sundayDates.size + mondayDates.size,
+        };
       });
 
       setStreaks(streakData);
@@ -509,7 +547,11 @@ const Membership = () => {
       const matchSearch = s.name.toLowerCase().includes(streakSearch.toLowerCase());
       return matchCat && matchSearch;
     })
-    .sort((a, b) => b[streakSortBy] - a[streakSortBy]);
+    .sort((a, b) => {
+      const av = a[streakSortBy] || 0;
+      const bv = b[streakSortBy] || 0;
+      return streakSortDir === 'desc' ? bv - av : av - bv;
+    });
 
   const exportStreaks = (format) => {
     if (filteredStreaks.length === 0) {
@@ -522,9 +564,9 @@ const Membership = () => {
     const filename = `Streaks${categoryLabel}_${date}`;
 
     if (format === 'csv') {
-      const header = 'Rank,Name,Category,Current Streak,Longest Streak,Total Attended\n';
+      const header = 'Rank,Name,Category,Current,Longest,Sun Current,Sun Longest,Mon Current,Mon Longest,Total\n';
       const rows = filteredStreaks.map((s, i) =>
-        `${i + 1},"${s.name}",${s.category},${s.currentStreak},${s.longestStreak},${s.totalAttended}`
+        `${i + 1},"${s.name}",${s.category},${s.currentStreak},${s.longestStreak},${s.sundayCurrent ?? 0},${s.sundayLongest ?? 0},${s.mondayCurrent ?? 0},${s.mondayLongest ?? 0},${s.totalAttended}`
       ).join('\n');
       const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -866,15 +908,10 @@ const Membership = () => {
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                   </div>
-                  <div className="control-group">
-                    <label>Sort By</label>
-                    <select value={streakSortBy} onChange={(e) => setStreakSortBy(e.target.value)} className="select-clean">
-                      <option value="currentStreak">Current Streak</option>
-                      <option value="longestStreak">Longest Streak</option>
-                      <option value="totalAttended">Total Attended</option>
-                    </select>
-                  </div>
                 </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
+                  Tip: click any streak column header to sort.
+                </p>
               </div>
 
               {streaksLoading ? (
@@ -891,15 +928,52 @@ const Membership = () => {
                     </div>
                   </div>
                   <div className="table-container-clean">
-                    <table className="members-table-clean">
+                    <table className="members-table-clean streaks-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '3rem' }}>#</th>
+                          <th style={{ width: '3rem', textAlign: 'center' }}>#</th>
                           <th className="name-col">Member</th>
                           <th className="category-col">Category</th>
-                          <th style={{ textAlign: 'center' }}>Current Streak</th>
-                          <th style={{ textAlign: 'center' }}>Longest Streak</th>
-                          <th style={{ textAlign: 'center' }}>Total Attended</th>
+                          <th colSpan="2" className="streak-group-header sunday-group">Sunday</th>
+                          <th colSpan="2" className="streak-group-header monday-group">Monday</th>
+                          <th
+                            className={`sortable-header ${streakSortBy === 'totalAttended' ? 'sorted-active' : ''}`}
+                            style={{ textAlign: 'center', cursor: 'pointer' }}
+                            rowSpan="2"
+                            onClick={() => toggleStreakSort('totalAttended')}
+                          >
+                            Total
+                            {streakSortBy === 'totalAttended' && (
+                              <span style={{ marginLeft: '0.25rem', color: 'var(--accent)' }}>
+                                {streakSortDir === 'desc' ? '▼' : '▲'}
+                              </span>
+                            )}
+                          </th>
+                        </tr>
+                        <tr className="streak-subheader">
+                          <th></th>
+                          <th></th>
+                          <th></th>
+                          {[
+                            { field: 'sundayCurrent',  label: 'Current' },
+                            { field: 'sundayLongest',  label: 'Longest' },
+                            { field: 'mondayCurrent',  label: 'Current' },
+                            { field: 'mondayLongest',  label: 'Longest' },
+                          ].map(col => (
+                            <th
+                              key={col.field}
+                              className={`sortable-header ${streakSortBy === col.field ? 'sorted-active' : ''}`}
+                              style={{ textAlign: 'center', cursor: 'pointer' }}
+                              onClick={() => toggleStreakSort(col.field)}
+                            >
+                              {col.label}
+                              {streakSortBy === col.field && (
+                                <span style={{ marginLeft: '0.25rem', color: 'var(--accent)' }}>
+                                  {streakSortDir === 'desc' ? '▼' : '▲'}
+                                </span>
+                              )}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -916,11 +990,19 @@ const Membership = () => {
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <span className="streak-value">
-                                {s.currentStreak} {streakFlame(s.currentStreak)}
+                                {s.sundayCurrent} {streakFlame(s.sundayCurrent)}
                               </span>
                             </td>
                             <td style={{ textAlign: 'center' }}>
-                              <span className="streak-best">{s.longestStreak}</span>
+                              <span className="streak-best">{s.sundayLongest}</span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className="streak-value">
+                                {s.mondayCurrent} {streakFlame(s.mondayCurrent)}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className="streak-best">{s.mondayLongest}</span>
                             </td>
                             <td style={{ textAlign: 'center' }}>{s.totalAttended}</td>
                           </tr>
@@ -936,21 +1018,6 @@ const Membership = () => {
             </div>
           )}
 
-          {/* Floating Quick Access Menu */}
-          <div className="floating-quick-menu">
-            <div className="quick-menu-item" onClick={() => navigate('/')} title="Dashboard">
-              <span className="menu-icon">🏠</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate('/attendance')} title="Add Attendance">
-              <span className="menu-icon">➕</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate('/analytics')} title="Analytics">
-              <span className="menu-icon">📊</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate('/logs')} title="Audit Logs">
-              <span className="menu-icon">📋</span>
-            </div>
-          </div>
         </div>
       </div>
     </>

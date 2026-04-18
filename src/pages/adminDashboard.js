@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection, getDocs, addDoc, deleteDoc,
@@ -15,6 +15,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("All");
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -105,6 +107,29 @@ export default function AdminDashboard() {
     }
   };
 
+  const kpis = useMemo(() => {
+    const admins = users.filter(u => u.role === "admin").length;
+    const regular = users.filter(u => u.role === "user").length;
+    const thisMonth = users.filter(u => {
+      if (!u.addedAt?.seconds) return false;
+      const d = new Date(u.addedAt.seconds * 1000);
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+    return { total: users.length, admins, regular, thisMonth };
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      if (roleFilter !== "All" && u.role !== roleFilter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!u.email?.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [users, search, roleFilter]);
+
   if (!isAdmin()) {
     return (
       <div className="page-content">
@@ -143,6 +168,30 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* KPI row */}
+          <div className="kpi-row">
+            <div className="kpi-card">
+              <div className="kpi-label">Total Users</div>
+              <div className="kpi-value">{kpis.total}</div>
+              <div className="kpi-sub">approved accounts</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Admins</div>
+              <div className="kpi-value">{kpis.admins}</div>
+              <div className="kpi-sub">with full access</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Regular</div>
+              <div className="kpi-value">{kpis.regular}</div>
+              <div className="kpi-sub">view-only users</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Added This Month</div>
+              <div className="kpi-value">{kpis.thisMonth}</div>
+              <div className="kpi-sub">new approvals</div>
+            </div>
+          </div>
+
           {/* Add user */}
           <div className="controls-card">
             <div className="controls-header">
@@ -172,11 +221,32 @@ export default function AdminDashboard() {
             </form>
           </div>
 
+          {/* Search & filter bar */}
+          <div className="logs-toolbar">
+            <input
+              type="text"
+              className="logs-search"
+              placeholder="🔍 Search email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="logs-filter-select"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="All">All Roles</option>
+              <option value="admin">Admins</option>
+              <option value="user">Users</option>
+            </select>
+            <button onClick={fetchUsers} className="btn-secondary btn-sm">Refresh</button>
+          </div>
+
           {/* Users list */}
           <div className="table-card">
             <div className="table-header">
-              <h3>Users ({users.length})</h3>
-              <button onClick={fetchUsers} className="refresh-btn-small">Refresh</button>
+              <h3>Users</h3>
+              <span className="table-info">{filteredUsers.length} of {users.length}</span>
             </div>
 
             {loading ? (
@@ -193,9 +263,14 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(u => (
+                    {filteredUsers.map(u => (
                       <tr key={u.id}>
-                        <td style={{ fontWeight: 500 }}>{u.email}</td>
+                        <td style={{ fontWeight: 500 }}>
+                          {u.email}
+                          {u.email === user?.email && (
+                            <span className="admin-self-pill">you</span>
+                          )}
+                        </td>
                         <td>
                           <select
                             value={u.role}
@@ -223,9 +298,9 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
-                {users.length === 0 && (
+                {filteredUsers.length === 0 && (
                   <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
-                    No users found.
+                    {users.length === 0 ? "No users found." : "No users match your filters."}
                   </div>
                 )}
               </div>

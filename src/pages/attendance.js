@@ -13,6 +13,7 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useAuth } from "../context/authContext";
 import { AdminOnly } from "../components/RoleBasedAccess";
 import Navigation from "../components/Navigation";
+import { inferServiceTypeFromDate } from "../utils/serviceType";
 
 export default function AttendanceForm({ fetchAttendance }) {
   const [members, setMembers] = useState([]);
@@ -20,6 +21,7 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [category, setCategory] = useState("");
   const [isNewMember, setIsNewMember] = useState(false);
   const [serviceName, setServiceName] = useState("");
+  const [serviceType, setServiceType] = useState("Sunday");
   const [date, setDate] = useState("");
   const [existingServices, setExistingServices] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
@@ -29,6 +31,7 @@ export default function AttendanceForm({ fetchAttendance }) {
   // Bulk attendance state
   const [activeTab, setActiveTab] = useState("single");
   const [bulkService, setBulkService] = useState("");
+  const [bulkServiceType, setBulkServiceType] = useState("Sunday");
   const [bulkDate, setBulkDate] = useState("");
   const [bulkSelected, setBulkSelected] = useState({});
   const [bulkSearchTerm, setBulkSearchTerm] = useState("");
@@ -53,7 +56,20 @@ export default function AttendanceForm({ fetchAttendance }) {
     const today = new Date().toISOString().split("T")[0];
     setDate(today);
     setBulkDate(today);
+    const inferred = inferServiceTypeFromDate(today);
+    setServiceType(inferred);
+    setBulkServiceType(inferred);
   }, []);
+
+  // Auto-update type when single-form date changes
+  useEffect(() => {
+    if (date) setServiceType(inferServiceTypeFromDate(date));
+  }, [date]);
+
+  // Auto-update type when bulk date changes
+  useEffect(() => {
+    if (bulkDate) setBulkServiceType(inferServiceTypeFromDate(bulkDate));
+  }, [bulkDate]);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -172,6 +188,7 @@ export default function AttendanceForm({ fetchAttendance }) {
         name: finalName,
         category: finalCategory,
         serviceName: finalService,
+        serviceType,
         date,
         timestamp: serverTimestamp(),
       });
@@ -237,6 +254,7 @@ export default function AttendanceForm({ fetchAttendance }) {
     try {
       let addedCount = 0;
       let skippedCount = 0;
+      const addedNames = [];
 
       for (const member of selectedMembers) {
         const normalizedName = member.name.toLowerCase().trim();
@@ -249,21 +267,28 @@ export default function AttendanceForm({ fetchAttendance }) {
           name: member.name,
           category: member.category,
           serviceName: bulkService.trim(),
+          serviceType: bulkServiceType,
           date: bulkDate,
           timestamp: serverTimestamp(),
         });
 
+        addedNames.push(member.name);
+        addedCount++;
+      }
+
+      // Single summary log entry for the whole bulk operation
+      if (addedCount > 0) {
         await addDoc(collection(db, "logs"), {
-          action: "Attendance Added",
-          details: `Bulk: Added attendance for ${member.name} in ${bulkService} on ${bulkDate}`,
+          action: "Bulk Attendance Added",
+          details: `Marked ${addedCount} members present in ${bulkService.trim()} on ${bulkDate}${skippedCount > 0 ? ` (${skippedCount} skipped)` : ""}`,
           user: user?.email || "System",
           timestamp: serverTimestamp(),
-          memberName: member.name,
           serviceName: bulkService.trim(),
+          serviceType: bulkServiceType,
           date: bulkDate,
+          memberCount: addedCount,
+          members: addedNames,
         });
-
-        addedCount++;
       }
 
       setBulkSelected({});
@@ -433,6 +458,22 @@ export default function AttendanceForm({ fetchAttendance }) {
                 </div>
 
                 <div className="form-group">
+                  <label className="form-label">Service Type</label>
+                  <div className="service-type-toggle">
+                    <button
+                      type="button"
+                      className={`service-type-btn ${serviceType === "Sunday" ? "active" : ""}`}
+                      onClick={() => setServiceType("Sunday")}
+                    >Sunday</button>
+                    <button
+                      type="button"
+                      className={`service-type-btn ${serviceType === "Monday" ? "active" : ""}`}
+                      onClick={() => setServiceType("Monday")}
+                    >Monday</button>
+                  </div>
+                </div>
+
+                <div className="form-group">
                   <label htmlFor="date" className="form-label">Date</label>
                   <input
                     id="date"
@@ -487,6 +528,22 @@ export default function AttendanceForm({ fetchAttendance }) {
                       value={bulkDate}
                       onChange={(e) => setBulkDate(e.target.value)}
                     />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Service Type</label>
+                  <div className="service-type-toggle">
+                    <button
+                      type="button"
+                      className={`service-type-btn ${bulkServiceType === "Sunday" ? "active" : ""}`}
+                      onClick={() => setBulkServiceType("Sunday")}
+                    >Sunday</button>
+                    <button
+                      type="button"
+                      className={`service-type-btn ${bulkServiceType === "Monday" ? "active" : ""}`}
+                      onClick={() => setBulkServiceType("Monday")}
+                    >Monday</button>
                   </div>
                 </div>
 
@@ -594,26 +651,6 @@ export default function AttendanceForm({ fetchAttendance }) {
             </AdminOnly>
           )}
 
-          {/* Floating Quick Access Menu */}
-          <div className="floating-quick-menu">
-            <div className="quick-menu-item" onClick={() => navigate("/")} title="Home">
-              <span className="menu-icon">🏠</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate("/analytics")} title="Analytics">
-              <span className="menu-icon">📊</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate("/membership")} title="Membership">
-              <span className="menu-icon">👥</span>
-            </div>
-            <div className="quick-menu-item" onClick={() => navigate("/logs")} title="Audit Logs">
-              <span className="menu-icon">📋</span>
-            </div>
-            <AdminOnly>
-              <div className="quick-menu-item" onClick={() => navigate("/admin")} title="Admin Dashboard">
-                <span className="menu-icon">⚙️</span>
-              </div>
-            </AdminOnly>
-          </div>
         </div>
       </div>
     </>

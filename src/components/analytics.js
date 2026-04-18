@@ -1,8 +1,30 @@
 import React from "react";
-import { Bar, Pie } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
+import { Bar, Pie, Line } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement, Filler } from "chart.js";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement, Filler);
+
+// Line chart component — expects { labels: [...], datasets: [...] }
+export const LineChart = ({ chartData, height = 300 }) => {
+  if (!chartData?.labels || !chartData?.datasets) return null;
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, font: { size: 12 } } },
+      tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', cornerRadius: 8 },
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.08)' } },
+      x: { grid: { display: false } },
+    },
+  };
+  return (
+    <div style={{ height: `${height}px`, width: '100%' }}>
+      <Line data={chartData} options={options} />
+    </div>
+  );
+};
 
 const AnalyticsComponent = ({ chartData }) => {
   // Handle undefined/null data
