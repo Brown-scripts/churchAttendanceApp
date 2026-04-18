@@ -141,8 +141,9 @@
   color: #fff;
 }
 .landing-nav-logo {
-  width: 28px; height: 28px;
-  border-radius: 7px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 .landing-nav-signin {
   padding: 0.5rem 1.1rem;
@@ -882,9 +883,9 @@ input, select, textarea {
 .navbar-brand:hover { text-decoration: none; opacity: 0.85; }
 
 .navbar-logo {
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   object-fit: cover;
 }
 
@@ -2378,6 +2379,68 @@ th.sortable-header.sorted-active {
   margin: 0.5rem 0 0;
 }
 
+/* Services table */
+.services-table td, .services-table th {
+  vertical-align: middle;
+}
+
+.service-type-pill {
+  display: inline-block;
+  padding: 0.2rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.service-type-pill.type-sunday {
+  background: var(--teal-100);
+  color: var(--teal-700);
+}
+.service-type-pill.type-monday {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+.dark-theme .service-type-pill.type-sunday {
+  background: rgba(0,150,136,0.2);
+  color: var(--accent);
+}
+.dark-theme .service-type-pill.type-monday {
+  background: rgba(124,58,237,0.2);
+  color: #a78bfa;
+}
+
+.attendance-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.attendance-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 60px;
+}
+.dark-theme .attendance-bar {
+  background: rgba(255,255,255,0.06);
+}
+.attendance-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms ease;
+}
+.attendance-bar-fill.type-sunday { background: var(--accent); }
+.attendance-bar-fill.type-monday { background: #7c3aed; }
+.attendance-bar-num {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--text-base);
+  min-width: 3.5rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* Analytics side-by-side split (Services & Categories tabs) */
 .analytics-split {
   display: grid;
@@ -2859,8 +2922,9 @@ th.sortable-header.sorted-active {
 
 .hero-logo {
   width: 72px; height: 72px;
-  border-radius: var(--radius-lg);
+  border-radius: 50%;
   object-fit: cover;
+  background: #fff;
   box-shadow: 0 4px 20px rgba(0,0,0,.3);
   flex-shrink: 0;
   z-index: 1;

@@ -4,10 +4,11 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
 import Navigation from "../components/Navigation";
-import logo from "../assets/image.png";
 import generateReport from "../components/reportGenerator";
 import { getServiceType } from "../utils/serviceType";
 import { useAuth } from "../context/authContext";
+
+const logo = "/z1-logo.jpeg";
 
 const normalizeName = (n) => (n || "").toLowerCase().trim();
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
-import logo from "../assets/image.png";
+const logo = "/z1-logo.jpeg";
 
 const features = [
   { num: "01", title: "Bulk attendance in one tap",  body: "Mark dozens of members present at once. Sort by category. Already-present members are skipped automatically." },

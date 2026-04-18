@@ -113,10 +113,16 @@ export default function Analytics() {
   const serviceData = useMemo(() => {
     const svc = {};
     filtered.forEach(r => {
-      if (!svc[r.serviceName]) svc[r.serviceName] = { total: 0, categories: {}, dates: new Set() };
+      if (!svc[r.serviceName]) svc[r.serviceName] = { total: 0, categories: {}, dates: new Set(), typeCounts: { Sunday: 0, Monday: 0 } };
       svc[r.serviceName].total += 1;
       svc[r.serviceName].categories[r.category] = (svc[r.serviceName].categories[r.category] || 0) + 1;
       if (r.date) svc[r.serviceName].dates.add(r.date);
+      if (r.serviceType === "Sunday") svc[r.serviceName].typeCounts.Sunday++;
+      else if (r.serviceType === "Monday") svc[r.serviceName].typeCounts.Monday++;
+    });
+    // Determine dominant type per service
+    Object.values(svc).forEach(s => {
+      s.dominantType = s.typeCounts.Sunday >= s.typeCounts.Monday ? "Sunday" : "Monday";
     });
     return svc;
   }, [filtered]);
@@ -124,6 +130,12 @@ export default function Analytics() {
   const sortedServices = useMemo(() => {
     return Object.keys(serviceData).sort((a, b) => serviceData[b].total - serviceData[a].total);
   }, [serviceData]);
+
+  // Services table state
+  const [serviceSort, setServiceSort] = useState({ field: "total", dir: "desc" });
+  const toggleServiceSort = (field) => {
+    setServiceSort(s => s.field === field ? { field, dir: s.dir === "desc" ? "asc" : "desc" } : { field, dir: "desc" });
+  };
 
   // Sunday vs Monday daily trend — two lines
   const trendData = useMemo(() => {
@@ -245,6 +257,26 @@ export default function Analytics() {
   }, [filtered, monthFilter]);
 
   const totalAttendance = filtered.length;
+
+  const serviceTableRows = useMemo(() => {
+    const rows = Object.entries(serviceData).map(([name, data]) => ({
+      name,
+      total: data.total,
+      dates: data.dates.size,
+      type: data.dominantType,
+      pct: totalAttendance > 0 ? (data.total / totalAttendance) * 100 : 0,
+    }));
+    rows.sort((a, b) => {
+      const av = a[serviceSort.field];
+      const bv = b[serviceSort.field];
+      if (typeof av === "string") {
+        return serviceSort.dir === "desc" ? bv.localeCompare(av) : av.localeCompare(bv);
+      }
+      return serviceSort.dir === "desc" ? bv - av : av - bv;
+    });
+    const maxTotal = Math.max(1, ...rows.map(r => r.total));
+    return rows.map(r => ({ ...r, barPct: (r.total / maxTotal) * 100 }));
+  }, [serviceData, serviceSort, totalAttendance]);
 
   if (loading) {
     return (
@@ -475,31 +507,86 @@ export default function Analytics() {
                 );
               })()}
 
-              <div className="services-section">
-                <h3>All Services — click to view breakdown</h3>
-                <div className="service-list">
-                  {sortedServices.map((service, i) => {
-                    const data = serviceData[service];
-                    const pct = totalAttendance > 0 ? Math.round((data.total / totalAttendance) * 100) : 0;
-                    return (
-                      <button
-                        key={service}
-                        className="service-button"
-                        onClick={() => navigate(`/analytics/${encodeURIComponent(service)}`)}
-                      >
-                        <div className="service-button-header">
-                          <div className="service-color-dot" style={{ background: COLORS[i % COLORS.length] }} />
-                          <div className="service-name">{service}</div>
-                        </div>
-                        <div className="service-count">{data.total.toLocaleString()} records · {pct}% of total</div>
-                        <div className="service-mini-bar">
-                          {Object.values(data.categories).map((v, ci) => (
-                            <div key={ci} className="service-mini-segment" style={{ flex: v, background: COLORS[ci % COLORS.length] }} />
-                          ))}
-                        </div>
-                      </button>
-                    );
-                  })}
+              <div className="table-card">
+                <div className="table-header">
+                  <h3>All Services</h3>
+                  <span className="table-info">
+                    {serviceTableRows.length} services
+                    <span className="edit-hint"> — click a row for breakdown</span>
+                  </span>
+                </div>
+                <div className="table-container-clean">
+                  <table className="members-table-clean services-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "3rem", textAlign: "center" }}>#</th>
+                        <th
+                          className={`sortable-header ${serviceSort.field === "name" ? "sorted-active" : ""}`}
+                          onClick={() => toggleServiceSort("name")}
+                          style={{ cursor: "pointer" }}
+                        >
+                          Service {serviceSort.field === "name" && <span style={{ color: "var(--accent)" }}>{serviceSort.dir === "desc" ? "▼" : "▲"}</span>}
+                        </th>
+                        <th
+                          className={`sortable-header ${serviceSort.field === "type" ? "sorted-active" : ""}`}
+                          onClick={() => toggleServiceSort("type")}
+                          style={{ cursor: "pointer", textAlign: "center" }}
+                        >
+                          Type {serviceSort.field === "type" && <span style={{ color: "var(--accent)" }}>{serviceSort.dir === "desc" ? "▼" : "▲"}</span>}
+                        </th>
+                        <th
+                          className={`sortable-header ${serviceSort.field === "total" ? "sorted-active" : ""}`}
+                          onClick={() => toggleServiceSort("total")}
+                          style={{ cursor: "pointer", minWidth: "200px" }}
+                        >
+                          Attendance {serviceSort.field === "total" && <span style={{ color: "var(--accent)" }}>{serviceSort.dir === "desc" ? "▼" : "▲"}</span>}
+                        </th>
+                        <th
+                          className={`sortable-header ${serviceSort.field === "pct" ? "sorted-active" : ""}`}
+                          onClick={() => toggleServiceSort("pct")}
+                          style={{ cursor: "pointer", textAlign: "center" }}
+                        >
+                          % {serviceSort.field === "pct" && <span style={{ color: "var(--accent)" }}>{serviceSort.dir === "desc" ? "▼" : "▲"}</span>}
+                        </th>
+                        <th
+                          className={`sortable-header ${serviceSort.field === "dates" ? "sorted-active" : ""}`}
+                          onClick={() => toggleServiceSort("dates")}
+                          style={{ cursor: "pointer", textAlign: "center" }}
+                        >
+                          Dates {serviceSort.field === "dates" && <span style={{ color: "var(--accent)" }}>{serviceSort.dir === "desc" ? "▼" : "▲"}</span>}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {serviceTableRows.map((row, i) => (
+                        <tr
+                          key={row.name}
+                          className="clickable-row"
+                          onClick={() => navigate(`/analytics/${encodeURIComponent(row.name)}`)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.8rem" }}>{i + 1}</td>
+                          <td style={{ fontWeight: 500 }}>{row.name}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <span className={`service-type-pill type-${row.type.toLowerCase()}`}>{row.type}</span>
+                          </td>
+                          <td>
+                            <div className="attendance-bar-row">
+                              <div className="attendance-bar">
+                                <div
+                                  className={`attendance-bar-fill type-${row.type.toLowerCase()}`}
+                                  style={{ width: `${row.barPct}%` }}
+                                />
+                              </div>
+                              <span className="attendance-bar-num">{row.total.toLocaleString()}</span>
+                            </div>
+                          </td>
+                          <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{Math.round(row.pct)}%</td>
+                          <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{row.dates}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </>

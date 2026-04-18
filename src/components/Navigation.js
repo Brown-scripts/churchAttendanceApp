@@ -4,7 +4,7 @@ import { getAuth, signOut } from 'firebase/auth';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../context/authContext';
 import { AdminOnly } from '../components/RoleBasedAccess';
-import logo from '../assets/image.png';
+const logo = '/z1-logo.jpeg';
 
 const navLinks = [
   { path: '/',           label: 'Dashboard' },
