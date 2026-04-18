@@ -2178,8 +2178,25 @@ th.sortable-header.sorted-active {
   padding: 1.5rem;
 }
 
+.charts-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
 .chart-block {
   max-height: 380px;
+  min-width: 0;
+}
+.chart-block h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .charts-wrapper { grid-template-columns: 1fr; gap: 1rem; }
 }
 
 .services-section {}

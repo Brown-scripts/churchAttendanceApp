@@ -4,6 +4,28 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, 
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement, Filler);
 
+// Standalone Bar chart (no pie companion)
+export const BarChart = ({ chartData, height = 300 }) => {
+  if (!chartData?.labels || !chartData?.datasets) return null;
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, font: { size: 12 } } },
+      tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', cornerRadius: 8 },
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.08)' } },
+      x: { grid: { display: false } },
+    },
+  };
+  return (
+    <div style={{ height: `${height}px`, width: '100%' }}>
+      <Bar data={chartData} options={options} />
+    </div>
+  );
+};
+
 // Line chart component — expects { labels: [...], datasets: [...] }
 export const LineChart = ({ chartData, height = 300 }) => {
   if (!chartData?.labels || !chartData?.datasets) return null;

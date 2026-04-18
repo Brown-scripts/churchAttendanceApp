@@ -4,7 +4,7 @@ import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Navigation from "../components/Navigation";
-import AnalyticsComponent, { LineChart } from "../components/analytics";
+import AnalyticsComponent, { LineChart, BarChart } from "../components/analytics";
 import { getServiceType } from "../utils/serviceType";
 
 const COLORS = [
@@ -416,20 +416,24 @@ export default function Analytics() {
           {/* SERVICES SECTION */}
           {activeSection === "services" && (
             <>
-              <div className="analytics-split">
-                {dateBarData.labels.length > 0 && (
+              {(() => {
+                const hasBar = dateBarData.labels.length > 0;
+                const hasComparison = serviceComparison && serviceComparison.length > 0;
+                const useSplit = hasBar && hasComparison;
+
+                const barBlock = hasBar && (
                   <div className="chart-container">
                     <div className="table-header">
                       <h3>Attendance by Date</h3>
                       <span className="table-info">{dateBarData.labels.length} date{dateBarData.labels.length !== 1 ? "s" : ""}</span>
                     </div>
                     <div style={{ padding: "1.25rem" }}>
-                      <AnalyticsComponent chartData={dateBarData} />
+                      <BarChart chartData={dateBarData} height={320} />
                     </div>
                   </div>
-                )}
+                );
 
-                {serviceComparison && serviceComparison.length > 0 && (
+                const comparisonBlock = hasComparison && (
                   <div className="table-card">
                     <div className="table-header">
                       <h3>Service Comparison</h3>
@@ -462,8 +466,14 @@ export default function Analytics() {
                       </table>
                     </div>
                   </div>
-                )}
-              </div>
+                );
+
+                return useSplit ? (
+                  <div className="analytics-split">{barBlock}{comparisonBlock}</div>
+                ) : (
+                  <>{barBlock}{comparisonBlock}</>
+                );
+              })()}
 
               <div className="services-section">
                 <h3>All Services — click to view breakdown</h3>
@@ -496,20 +506,23 @@ export default function Analytics() {
           )}
 
           {/* CATEGORIES SECTION */}
-          {activeSection === "categories" && (
-            <div className="analytics-split">
-              {categoryChartData.labels.length > 0 && (
-                <div className="chart-container">
-                  <div className="table-header">
-                    <h3>Category Distribution</h3>
-                    <span className="table-info">{categoryChartData.labels.length} categories</span>
-                  </div>
-                  <div style={{ padding: "1.25rem" }}>
-                    <AnalyticsComponent chartData={categoryChartData} />
-                  </div>
-                </div>
-              )}
+          {activeSection === "categories" && (() => {
+            const hasPie = categoryChartData.labels.length > 0;
+            const hasCards = Object.keys(categoryBreakdown).length > 0;
 
+            const pieBlock = hasPie && (
+              <div className="chart-container">
+                <div className="table-header">
+                  <h3>Category Distribution</h3>
+                  <span className="table-info">{categoryChartData.labels.length} categories</span>
+                </div>
+                <div style={{ padding: "1.25rem" }}>
+                  <AnalyticsComponent chartData={categoryChartData} />
+                </div>
+              </div>
+            );
+
+            const cardsBlock = hasCards && (
               <div className="category-stack">
                 {Object.entries(categoryBreakdown)
                   .sort(([,a], [,b]) => b - a)
@@ -524,8 +537,14 @@ export default function Analytics() {
                     );
                   })}
               </div>
-            </div>
-          )}
+            );
+
+            return hasPie && hasCards ? (
+              <div className="analytics-split">{pieBlock}{cardsBlock}</div>
+            ) : (
+              <>{pieBlock}{cardsBlock}</>
+            );
+          })()}
 
         </div>
       </div>
