@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, query, orderBy, limit, startAfter } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { useAuth } from '../context/authContext';
 import Navigation from '../components/Navigation';
 
 const ACTION_CONFIG = {
@@ -44,6 +45,7 @@ const bucketFor = (date) => {
 
 const Logs = () => {
   const [user] = useAuthState(auth);
+  const { displayNameFor } = useAuth();
 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -248,7 +250,7 @@ const Logs = () => {
                               )}
                             </div>
                             <div className="log-meta-row">
-                              <span className="log-meta-user">{log.user?.split('@')[0] || 'System'}</span>
+                              <span className="log-meta-user">{displayNameFor(log.user)}</span>
                               <span className="log-meta-time">
                                 {log.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 {bucket !== 'Today' && ` · ${log.timestamp.toLocaleDateString()}`}

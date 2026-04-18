@@ -7,6 +7,7 @@ import Navigation from "../components/Navigation";
 import logo from "../assets/image.png";
 import generateReport from "../components/reportGenerator";
 import { getServiceType } from "../utils/serviceType";
+import { useAuth } from "../context/authContext";
 
 const normalizeName = (n) => (n || "").toLowerCase().trim();
 
@@ -115,6 +116,7 @@ export default function Home() {
 
   const navigate = useNavigate();
   const auth = getAuth();
+  const { displayNameFor } = useAuth();
 
   const today = new Date();
   const currentDayName = daysOfWeek[today.getDay()];
@@ -259,7 +261,7 @@ export default function Home() {
             <img src={logo} alt="Church Logo" className="hero-logo" />
             <div className="hero-text">
               <h1 className="hero-title">
-                {user?.email ? `Welcome back, ${user.email.split('@')[0]}` : 'Universal Radiant Family'}
+                {user?.email ? `Welcome back, ${displayNameFor(user.email)}` : 'Universal Radiant Family'}
               </h1>
               <p className="hero-subtitle">
                 It's {currentDayName} · {today.toLocaleDateString("default", { month: "long", day: "numeric", year: "numeric" })}
@@ -358,7 +360,7 @@ export default function Home() {
                           <span className={`activity-dot activity-${cfg.color}`}>{cfg.icon}</span>
                           <div className="activity-text">
                             <div className="activity-headline">
-                              <strong>{log.user?.split('@')[0] || 'System'}</strong> · {cfg.label}
+                              <strong>{displayNameFor(log.user)}</strong> · {cfg.label}
                             </div>
                             <div className="activity-sub">
                               {log.memberName || log.serviceName || log.details?.split('.')[0]}

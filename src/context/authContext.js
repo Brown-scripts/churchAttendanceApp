@@ -9,6 +9,23 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Map: email (lowercased) → displayName
+  const [displayNameMap, setDisplayNameMap] = useState({});
+
+  // Load all allowedUsers once to build the display-name lookup
+  const loadDisplayNames = async () => {
+    try {
+      const snap = await getDocs(collection(db, "allowedUsers"));
+      const map = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.email) map[data.email.toLowerCase()] = data.displayName || null;
+      });
+      setDisplayNameMap(map);
+    } catch (err) {
+      console.error("Error loading display names:", err);
+    }
+  };
 
   // Function to fetch user role from Firebase
   const fetchUserRole = async (email) => {
@@ -21,7 +38,7 @@ export const AuthProvider = ({ children }) => {
 
       if (!snapshot.empty) {
         const userData = snapshot.docs[0].data();
-        return userData.role || "user"; // Default to "user" if no role specified
+        return userData.role || "user";
       }
       return null;
     } catch (error) {
@@ -38,8 +55,10 @@ export const AuthProvider = ({ children }) => {
       if (currentUser) {
         const role = await fetchUserRole(currentUser.email);
         setUserRole(role);
+        loadDisplayNames();
       } else {
         setUserRole(null);
+        setDisplayNameMap({});
       }
 
       setLoading(false);
@@ -53,6 +72,13 @@ export const AuthProvider = ({ children }) => {
   const isUser = () => userRole === "user";
   const hasRole = (role) => userRole === role;
 
+  // Resolve an email to a display name, falling back to the part before @
+  const displayNameFor = (email) => {
+    if (!email) return "System";
+    const key = email.toLowerCase();
+    return displayNameMap[key] || email.split("@")[0];
+  };
+
   const value = {
     user,
     userRole,
@@ -60,6 +86,8 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     isUser,
     hasRole,
+    displayNameFor,
+    refreshDisplayNames: loadDisplayNames,
     refreshUserRole: async () => {
       if (user) {
         const role = await fetchUserRole(user.email);

@@ -20,7 +20,7 @@ const Navigation = ({ user }) => {
   const location = useLocation();
   const auth = getAuth();
   const { isDarkMode, toggleTheme } = useTheme();
-  useAuth();
+  const { displayNameFor } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -77,7 +77,7 @@ const Navigation = ({ user }) => {
         <div className="navbar-actions">
           {user && (
             <div className="navbar-user">
-              {user.email?.split('@')[0] || 'User'}
+              {displayNameFor(user.email)}
             </div>
           )}
           <button
@@ -157,7 +157,7 @@ const Navigation = ({ user }) => {
         <div className="navbar-mobile-actions">
           {user && (
             <div className="navbar-user" style={{ alignSelf: 'flex-start' }}>
-              Signed in as {user.email?.split('@')[0] || 'User'}
+              Signed in as {displayNameFor(user.email)}
             </div>
           )}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>

@@ -20,7 +20,7 @@ export default function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState("All");
   const [editingName, setEditingName] = useState(null); // user id being edited
   const [editNameValue, setEditNameValue] = useState("");
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, refreshDisplayNames } = useAuth();
   const navigate = useNavigate();
 
   const fetchUsers = async () => {
@@ -71,6 +71,7 @@ export default function AdminDashboard() {
       setNewEmail(""); setNewDisplayName(""); setNewRole("user");
       showSuccess(`${newEmail} added successfully`);
       fetchUsers();
+      refreshDisplayNames?.();
     } catch (err) {
       showError("Failed to add user.");
     }
@@ -112,6 +113,7 @@ export default function AdminDashboard() {
       setEditNameValue("");
       showSuccess(`Display name updated for ${email}`);
       fetchUsers();
+      refreshDisplayNames?.();
     } catch (err) {
       showError("Failed to update display name.");
     }
