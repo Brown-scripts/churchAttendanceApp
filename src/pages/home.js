@@ -132,7 +132,7 @@ export default function Home() {
         const [memberSnap, attendanceSnap, logSnap] = await Promise.all([
           getDocs(collection(db, "membership")),
           getDocs(collection(db, "attendance")),
-          getDocs(query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(10))),
+          getDocs(query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(5))),
         ]);
 
         const memberSet = new Set(

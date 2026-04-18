@@ -94,7 +94,6 @@ export default function Analytics() {
   const kpis = useMemo(() => {
     const totalRecords = filtered.length;
     const uniqueServices = new Set(filtered.map(r => r.serviceName)).size;
-    const uniqueMembers = new Set(filtered.map(r => r.serviceName + "|" + r.serviceName)).size; // placeholder
     const uniqueDates = new Set(filtered.map(r => r.date)).size;
     const avgPerService = uniqueDates > 0 ? Math.round(totalRecords / uniqueDates) : 0;
 
@@ -207,7 +206,6 @@ export default function Analytics() {
     };
   }, [filtered]);
 
-  const top10Services = sortedServices.slice(0, 10);
 
   // Service comparison: current vs previous period
   const serviceComparison = useMemo(() => {

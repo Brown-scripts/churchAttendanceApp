@@ -8,7 +8,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useAuth } from "../context/authContext";
 import { AdminOnly } from "../components/RoleBasedAccess";
@@ -40,7 +39,6 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [alreadyPresent, setAlreadyPresent] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState({});
 
-  const navigate = useNavigate();
   const auth = getAuth();
 
   const categories = ["L100", "L200", "L300", "L400", "Worker", "Other", "New"];
