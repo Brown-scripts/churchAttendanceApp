@@ -416,53 +416,54 @@ export default function Analytics() {
           {/* SERVICES SECTION */}
           {activeSection === "services" && (
             <>
-              {dateBarData.labels.length > 0 && (
-                <div className="chart-container">
-                  <div className="table-header">
-                    <h3>Attendance by Date</h3>
-                    <span className="table-info">{dateBarData.labels.length} date{dateBarData.labels.length !== 1 ? "s" : ""}</span>
+              <div className="analytics-split">
+                {dateBarData.labels.length > 0 && (
+                  <div className="chart-container">
+                    <div className="table-header">
+                      <h3>Attendance by Date</h3>
+                      <span className="table-info">{dateBarData.labels.length} date{dateBarData.labels.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div style={{ padding: "1.25rem" }}>
+                      <AnalyticsComponent chartData={dateBarData} />
+                    </div>
                   </div>
-                  <div style={{ padding: "1.25rem" }}>
-                    <AnalyticsComponent chartData={dateBarData} />
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/* Service comparison table */}
-              {serviceComparison && serviceComparison.length > 0 && (
-                <div className="table-card">
-                  <div className="table-header">
-                    <h3>Service Comparison</h3>
-                    <span className="table-info">This month vs previous</span>
-                  </div>
-                  <div className="table-container-clean">
-                    <table className="members-table-clean">
-                      <thead>
-                        <tr>
-                          <th>Service</th>
-                          <th style={{ textAlign: "center" }}>Current</th>
-                          <th style={{ textAlign: "center" }}>Previous</th>
-                          <th style={{ textAlign: "center" }}>Change</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {serviceComparison.map(s => (
-                          <tr key={s.name}>
-                            <td style={{ fontWeight: 500 }}>{s.name}</td>
-                            <td style={{ textAlign: "center", fontWeight: 700 }}>{s.curr}</td>
-                            <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{s.prev}</td>
-                            <td style={{ textAlign: "center" }}>
-                              <span className={`trend-pill ${s.change > 0 ? "trend-up" : s.change < 0 ? "trend-down" : "trend-flat"}`}>
-                                {s.change > 0 ? "↑" : s.change < 0 ? "↓" : "—"} {Math.abs(s.change)}%
-                              </span>
-                            </td>
+                {serviceComparison && serviceComparison.length > 0 && (
+                  <div className="table-card">
+                    <div className="table-header">
+                      <h3>Service Comparison</h3>
+                      <span className="table-info">This month vs previous</span>
+                    </div>
+                    <div className="table-container-clean">
+                      <table className="members-table-clean">
+                        <thead>
+                          <tr>
+                            <th>Service</th>
+                            <th style={{ textAlign: "center" }}>Current</th>
+                            <th style={{ textAlign: "center" }}>Previous</th>
+                            <th style={{ textAlign: "center" }}>Change</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {serviceComparison.map(s => (
+                            <tr key={s.name}>
+                              <td style={{ fontWeight: 500 }}>{s.name}</td>
+                              <td style={{ textAlign: "center", fontWeight: 700 }}>{s.curr}</td>
+                              <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{s.prev}</td>
+                              <td style={{ textAlign: "center" }}>
+                                <span className={`trend-pill ${s.change > 0 ? "trend-up" : s.change < 0 ? "trend-down" : "trend-flat"}`}>
+                                  {s.change > 0 ? "↑" : s.change < 0 ? "↓" : "—"} {Math.abs(s.change)}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="services-section">
                 <h3>All Services — click to view breakdown</h3>
@@ -496,7 +497,7 @@ export default function Analytics() {
 
           {/* CATEGORIES SECTION */}
           {activeSection === "categories" && (
-            <>
+            <div className="analytics-split">
               {categoryChartData.labels.length > 0 && (
                 <div className="chart-container">
                   <div className="table-header">
@@ -509,7 +510,7 @@ export default function Analytics() {
                 </div>
               )}
 
-              <div className="category-cards-grid">
+              <div className="category-stack">
                 {Object.entries(categoryBreakdown)
                   .sort(([,a], [,b]) => b - a)
                   .map(([cat, count]) => {
@@ -523,7 +524,7 @@ export default function Analytics() {
                     );
                   })}
               </div>
-            </>
+            </div>
           )}
 
         </div>
