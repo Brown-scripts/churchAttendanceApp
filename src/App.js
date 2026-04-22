@@ -12,12 +12,16 @@ import AdminDashboard from "./pages/adminDashboard";
 import Landing from "./pages/landing";
 import Auth from "./components/auth";
 import ProtectedRoute from "./components/protectedRoute";
+import { ToastProvider } from "./components/Toast";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import "./styles.css";
 
 export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
+        <ToastProvider>
+        <ConfirmProvider>
         <Router>
       {/* Navigation Bar (always visible except on login) */}
       <Routes>
@@ -62,6 +66,8 @@ export default function App() {
         />
       </Routes>
         </Router>
+        </ConfirmProvider>
+        </ToastProvider>
       </ThemeProvider>
     </AuthProvider>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   addDoc,
   collection,
@@ -13,19 +13,45 @@ import { useAuth } from "../context/authContext";
 import { AdminOnly } from "../components/RoleBasedAccess";
 import Navigation from "../components/Navigation";
 import { inferServiceTypeFromDate } from "../utils/serviceType";
+import { useAttendanceRecords, useMembers, invalidateCollection } from "../hooks/useFirestoreCollection";
+import { useToast } from "../components/Toast";
+import { CATEGORIES } from "../constants";
+import { Info } from "lucide-react";
+import Combobox from "../components/Combobox";
 
 export default function AttendanceForm({ fetchAttendance }) {
-  const [members, setMembers] = useState([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [isNewMember, setIsNewMember] = useState(false);
   const [serviceName, setServiceName] = useState("");
   const [serviceType, setServiceType] = useState("Sunday");
   const [date, setDate] = useState("");
-  const [existingServices, setExistingServices] = useState([]);
   const [successMessage, setSuccessMessage] = useState("");
   const [user, setUser] = useState(null);
   const { isAdmin } = useAuth();
+  const toast = useToast();
+
+  const { data: membershipRecords } = useMembers();
+  const { data: attendanceRecords } = useAttendanceRecords();
+
+  const members = useMemo(() => {
+    if (!membershipRecords) return [];
+    const seen = new Set();
+    return membershipRecords.filter((m) => {
+      if (!m.name) return false;
+      const key = m.name.toLowerCase().trim().replace(/\s+/g, ' ');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [membershipRecords]);
+
+  const existingServices = useMemo(() => {
+    if (!attendanceRecords) return [];
+    const set = new Set();
+    attendanceRecords.forEach((d) => { if (d.serviceName) set.add(d.serviceName); });
+    return Array.from(set);
+  }, [attendanceRecords]);
 
   // Bulk attendance state
   const [activeTab, setActiveTab] = useState("single");
@@ -40,8 +66,6 @@ export default function AttendanceForm({ fetchAttendance }) {
   const [expandedCategories, setExpandedCategories] = useState({});
 
   const auth = getAuth();
-
-  const categories = ["L100", "L200", "L300", "L400", "Worker", "Other", "New"];
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -68,40 +92,6 @@ export default function AttendanceForm({ fetchAttendance }) {
   useEffect(() => {
     if (bulkDate) setBulkServiceType(inferServiceTypeFromDate(bulkDate));
   }, [bulkDate]);
-
-  useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "membership"));
-        const list = snapshot.docs.map((doc) => doc.data());
-        const seen = new Set();
-        const deduped = list.filter((m) => {
-          const key = m.name.toLowerCase().trim().replace(/\s+/g, ' ');
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        setMembers(deduped);
-      } catch (err) {
-        console.error("Error fetching members:", err);
-      }
-    };
-    fetchMembers();
-  }, []);
-
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "attendance"));
-        const serviceSet = new Set();
-        snapshot.forEach((doc) => serviceSet.add(doc.data().serviceName));
-        setExistingServices([...serviceSet]);
-      } catch (err) {
-        console.error("Error fetching services:", err);
-      }
-    };
-    fetchServices();
-  }, []);
 
   useEffect(() => {
     const match = members.find((m) => m.name.toLowerCase() === name.trim().toLowerCase());
@@ -147,7 +137,7 @@ export default function AttendanceForm({ fetchAttendance }) {
     const finalService = serviceName.trim();
 
     if (!finalName || !finalCategory || !finalService || !date) {
-      alert("Please fill all required fields.");
+      toast.warn("Please fill all required fields.");
       return;
     }
 
@@ -168,7 +158,7 @@ export default function AttendanceForm({ fetchAttendance }) {
       });
 
       if (isDuplicate) {
-        alert(`Attendance already recorded for "${finalName}" in ${finalService} service on ${date}.`);
+        toast.warn(`Attendance already recorded for "${finalName}" in ${finalService} service on ${date}.`);
         return;
       }
 
@@ -178,7 +168,7 @@ export default function AttendanceForm({ fetchAttendance }) {
           category: finalCategory,
         });
       } else if (isNewMember && !isAdmin()) {
-        alert("Only administrators can add new members. Please select from existing members.");
+        toast.error("Only administrators can add new members. Please select from existing members.");
         return;
       }
 
@@ -208,10 +198,12 @@ export default function AttendanceForm({ fetchAttendance }) {
       setSuccessMessage("Attendance submitted successfully!");
       setTimeout(() => setSuccessMessage(""), 4000);
 
+      invalidateCollection("attendance");
+      if (isNewMember) invalidateCollection("membership");
       await fetchAttendance?.();
     } catch (err) {
       console.error("Error submitting attendance:", err);
-      alert(`Submission failed: ${err.message}`);
+      toast.error(`Submission failed: ${err.message}`);
     }
   };
 
@@ -235,15 +227,15 @@ export default function AttendanceForm({ fetchAttendance }) {
     const selectedMembers = members.filter((m) => bulkSelected[m.name]);
 
     if (!bulkService.trim()) {
-      alert("Please enter a service name.");
+      toast.warn("Please enter a service name.");
       return;
     }
     if (!bulkDate) {
-      alert("Please select a date.");
+      toast.warn("Please select a date.");
       return;
     }
     if (selectedMembers.length === 0) {
-      alert("Please select at least one member.");
+      toast.warn("Please select at least one member.");
       return;
     }
 
@@ -304,10 +296,11 @@ export default function AttendanceForm({ fetchAttendance }) {
         : `Marked ${addedCount} members present!`;
       setBulkSuccessMessage(msg);
       setTimeout(() => setBulkSuccessMessage(""), 5000);
+      if (addedCount > 0) invalidateCollection("attendance");
       await fetchAttendance?.();
     } catch (err) {
       console.error("Error in bulk submit:", err);
-      alert(`Bulk submission failed: ${err.message}`);
+      toast.error(`Bulk submission failed: ${err.message}`);
     } finally {
       setBulkLoading(false);
     }
@@ -360,7 +353,8 @@ export default function AttendanceForm({ fetchAttendance }) {
               <form onSubmit={handleSubmit} className="attendance-form">
                 {!isAdmin() && (
                   <div className="info-banner">
-                    <span>ℹ️ You can only select from existing members. Contact an admin to add new members.</span>
+                    <Info size={16} strokeWidth={2.5} className="info-banner-icon" />
+                    <span>You can only select from existing members. Contact an admin to add new members.</span>
                   </div>
                 )}
 
@@ -368,35 +362,16 @@ export default function AttendanceForm({ fetchAttendance }) {
                   <label htmlFor="name" className="form-label">
                     Name {!isAdmin() && <span className="text-muted">(Select from existing members only)</span>}
                   </label>
-                  {isAdmin() ? (
-                    <input
-                      list="member-options"
-                      id="name"
-                      className="form-input"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Type or select member name..."
-                      required
-                    />
-                  ) : (
-                    <select
-                      id="name"
-                      className="form-select"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    >
-                      <option value="">Select a member...</option>
-                      {members.map((m) => (
-                        <option key={m.name} value={m.name}>{m.name}</option>
-                      ))}
-                    </select>
-                  )}
-                  <datalist id="member-options">
-                    {members.map((m) => (
-                      <option key={m.name} value={m.name} />
-                    ))}
-                  </datalist>
+                  <Combobox
+                    id="name"
+                    value={name}
+                    onChange={setName}
+                    options={members.map((m) => m.name)}
+                    placeholder={isAdmin() ? "Type or select member name…" : "Select a member…"}
+                    allowFreeText={isAdmin()}
+                    emptyText={isAdmin() ? "No match — will be added as a new member" : "No matching member"}
+                    required
+                  />
                 </div>
 
                 {isNewMember && isAdmin() ? (
@@ -439,20 +414,16 @@ export default function AttendanceForm({ fetchAttendance }) {
 
                 <div className="form-group">
                   <label htmlFor="service">Service</label>
-                  <input
-                    list="service-options"
+                  <Combobox
                     id="service"
-                    className="form-input"
                     value={serviceName}
-                    onChange={(e) => setServiceName(e.target.value)}
+                    onChange={setServiceName}
+                    options={existingServices}
                     placeholder="Type or select service"
+                    allowFreeText
+                    emptyText="No match — will be added as a new service"
                     required
                   />
-                  <datalist id="service-options">
-                    {existingServices.map((srv) => (
-                      <option key={srv} value={srv} />
-                    ))}
-                  </datalist>
                 </div>
 
                 <div className="form-group">
@@ -505,18 +476,14 @@ export default function AttendanceForm({ fetchAttendance }) {
                 <div className="bulk-service-row">
                   <div className="form-group">
                     <label className="form-label">Service</label>
-                    <input
-                      list="bulk-service-options"
-                      className="form-input"
+                    <Combobox
                       value={bulkService}
-                      onChange={(e) => setBulkService(e.target.value)}
-                      placeholder="Type or select service..."
+                      onChange={setBulkService}
+                      options={existingServices}
+                      placeholder="Type or select service…"
+                      allowFreeText
+                      emptyText="No match — will be added as a new service"
                     />
-                    <datalist id="bulk-service-options">
-                      {existingServices.map((srv) => (
-                        <option key={srv} value={srv} />
-                      ))}
-                    </datalist>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Date</label>
@@ -572,7 +539,7 @@ export default function AttendanceForm({ fetchAttendance }) {
 
                 {/* Members checklist grouped by category — collapsible */}
                 <div className="bulk-member-list">
-                  {categories.map((cat) => {
+                  {CATEGORIES.map((cat) => {
                     const catMembers = filteredBulkMembers.filter((m) => m.category === cat);
                     if (catMembers.length === 0) return null;
 

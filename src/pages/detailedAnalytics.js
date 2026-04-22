@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
@@ -8,6 +8,10 @@ import { useAuth } from "../context/authContext";
 import { AdminOnly } from "../components/RoleBasedAccess";
 import Navigation from "../components/Navigation";
 import AnalyticsComponent from "../components/analytics";
+import { useAttendanceRecords, invalidateCollection } from "../hooks/useFirestoreCollection";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
+import { X, Trash2 } from "lucide-react";
 
 const CATEGORY_COLORS = {
   L100: "#3b82f6",
@@ -30,40 +34,37 @@ export default function DetailedAnalytics() {
   const [user] = useAuthState(auth);
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   // Attendees modal state
   const [attendeesModal, setAttendeesModal] = useState(null); // { date, attendees: [{id, name, category}] }
   const [attendeesLoading, setAttendeesLoading] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const snap = await getDocs(collection(db, "attendance"));
-      const catMap = {};
-      const dateMap = {};
+  const { data: attendanceRecords, loading: attendanceLoading, refresh } = useAttendanceRecords();
 
-      snap.forEach(d => {
-        const entry = d.data();
-        if (entry?.serviceName?.trim().toLowerCase() !== serviceName.trim().toLowerCase()) return;
-        const cat = entry.category?.trim().toUpperCase() || "OTHER";
-        catMap[cat] = (catMap[cat] || 0) + 1;
+  useEffect(() => {
+    if (attendanceLoading || !attendanceRecords) return;
+    const catMap = {};
+    const dateMap = {};
 
-        const dt = entry.date || "Unknown";
-        if (!dateMap[dt]) dateMap[dt] = { total: 0, cats: {} };
-        dateMap[dt].total++;
-        dateMap[dt].cats[cat] = (dateMap[dt].cats[cat] || 0) + 1;
-      });
+    attendanceRecords.forEach(entry => {
+      if (entry?.serviceName?.trim().toLowerCase() !== serviceName.trim().toLowerCase()) return;
+      const cat = entry.category?.trim().toUpperCase() || "OTHER";
+      catMap[cat] = (catMap[cat] || 0) + 1;
 
-      setServiceData(catMap);
-      const sorted = Object.entries(dateMap)
-        .sort(([a], [b]) => b.localeCompare(a))
-        .slice(0, 10);
-      setDateHistory(sorted);
-    } catch (err) {
-      console.error("Error:", err);
-    }
-  }, [serviceName]);
+      const dt = entry.date || "Unknown";
+      if (!dateMap[dt]) dateMap[dt] = { total: 0, cats: {} };
+      dateMap[dt].total++;
+      dateMap[dt].cats[cat] = (dateMap[dt].cats[cat] || 0) + 1;
+    });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+    setServiceData(catMap);
+    const sorted = Object.entries(dateMap)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, 10);
+    setDateHistory(sorted);
+  }, [attendanceRecords, attendanceLoading, serviceName]);
 
   const openAttendeesModal = async (date) => {
     setAttendeesLoading(true);
@@ -80,7 +81,7 @@ export default function DetailedAnalytics() {
       setAttendeesModal({ date, attendees });
     } catch (err) {
       console.error("Error fetching attendees:", err);
-      alert("Failed to load attendees.");
+      toast.error("Failed to load attendees.");
       setAttendeesModal(null);
     } finally {
       setAttendeesLoading(false);
@@ -88,7 +89,13 @@ export default function DetailedAnalytics() {
   };
 
   const handleRemoveAttendee = async (attendee) => {
-    if (!window.confirm(`Remove ${attendee.name} from ${serviceName} on ${attendeesModal.date}?`)) return;
+    const ok = await confirm({
+      title: `Remove ${attendee.name}?`,
+      message: `They'll be removed from ${serviceName} on ${attendeesModal.date}. This action is logged.`,
+      confirmLabel: "Remove",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteDoc(doc(db, "attendance", attendee.id));
       await addDoc(collection(db, "logs"), {
@@ -105,23 +112,31 @@ export default function DetailedAnalytics() {
         ...prev,
         attendees: prev.attendees.filter(a => a.id !== attendee.id),
       }));
-      await fetchData();
+      invalidateCollection("attendance");
+      refresh();
     } catch (err) {
       console.error("Error removing attendee:", err);
-      alert("Failed to remove attendee.");
+      toast.error("Failed to remove attendee.");
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete ALL records for "${serviceName}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete all "${serviceName}" records?`,
+      message: "This permanently removes every attendance record for this service across all dates. This cannot be undone.",
+      confirmLabel: "Delete All",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       const q = query(collection(db, "attendance"), where("serviceName", "==", serviceName));
       const snap = await getDocs(q);
       for (const d of snap.docs) await deleteDoc(doc(db, "attendance", d.id));
+      invalidateCollection("attendance");
       navigate("/analytics");
     } catch (err) {
       console.error(err);
-      alert("Failed to delete.");
+      toast.error("Failed to delete.");
     }
   };
 
@@ -190,26 +205,29 @@ export default function DetailedAnalytics() {
             </div>
           </div>
 
-          {/* Category breakdown cards */}
-          <div className="category-cards-grid">
-            {labels.map(cat => {
-              const count = serviceData[cat];
-              const pct = Math.round((count / total) * 100);
-              return (
-                <div key={cat} className="category-stat-card" style={{ borderTopColor: getColor(cat) }}>
-                  <div className="category-stat-label">{cat}</div>
-                  <div className="category-stat-value">{count}</div>
-                  <div className="category-stat-pct">{pct}%</div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Chart */}
+          {/* Chart with inline category summary */}
           <div className="chart-container">
-            <div className="table-header"><h3>Category Distribution</h3></div>
+            <div className="table-header">
+              <div className="table-header-left">
+                <h3>Category Distribution</h3>
+                <span className="table-info">{labels.length} categor{labels.length === 1 ? 'y' : 'ies'}</span>
+              </div>
+            </div>
+            <div className="category-pill-strip">
+              {labels.map(cat => {
+                const count = serviceData[cat];
+                const pct = Math.round((count / total) * 100);
+                return (
+                  <div key={cat} className="category-pill" style={{ borderLeftColor: getColor(cat) }}>
+                    <span className="category-pill-label">{cat}</span>
+                    <span className="category-pill-value">{count}</span>
+                    <span className="category-pill-pct">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
             <div style={{ padding: "1.25rem" }}>
-              <AnalyticsComponent chartData={chartData} />
+              <AnalyticsComponent chartData={chartData} exportName={`${serviceName.replace(/\s+/g, '-')}_categories`} />
             </div>
           </div>
 
@@ -228,8 +246,8 @@ export default function DetailedAnalytics() {
                   <thead>
                     <tr>
                       <th>Date</th>
-                      <th style={{ textAlign: "center" }}>Total</th>
-                      {labels.map(c => <th key={c} style={{ textAlign: "center" }}>{c}</th>)}
+                      <th className="cell-center">Total</th>
+                      {labels.map(c => <th key={c} className="cell-center">{c}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -241,9 +259,9 @@ export default function DetailedAnalytics() {
                         className={isAdmin() ? "clickable-row" : ""}
                       >
                         <td style={{ fontWeight: 500 }}>{dt}</td>
-                        <td style={{ textAlign: "center", fontWeight: 700 }}>{info.total}</td>
+                        <td className="cell-num cell-bold">{info.total}</td>
                         {labels.map(c => (
-                          <td key={c} style={{ textAlign: "center", color: info.cats[c] ? "var(--text-base)" : "var(--text-light)" }}>
+                          <td key={c} className="cell-num" style={{ color: info.cats[c] ? "var(--text-base)" : "var(--text-light)" }}>
                             {info.cats[c] || "—"}
                           </td>
                         ))}
@@ -256,44 +274,68 @@ export default function DetailedAnalytics() {
           )}
 
           {/* Attendees modal */}
-          {attendeesModal && (
-            <div className="modal-overlay" onClick={() => setAttendeesModal(null)}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                  <h2>{serviceName}</h2>
-                  <p style={{ marginTop: "0.25rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-                    Attendees on {attendeesModal.date}
-                  </p>
-                </div>
-                <div className="modal-body">
-                  {attendeesLoading ? (
-                    <div className="loading-spinner"><div className="spinner" /><p>Loading...</p></div>
-                  ) : attendeesModal.attendees.length === 0 ? (
-                    <p className="text-muted" style={{ textAlign: "center", padding: "1rem" }}>No attendees.</p>
-                  ) : (
-                    <div className="attendees-list">
-                      {attendeesModal.attendees.map(a => (
-                        <div key={a.id} className="attendee-row">
-                          <div className="attendee-info">
-                            <span className="attendee-name">{a.name}</span>
-                            <span className={`category-badge category-${a.category?.toLowerCase()}`}>{a.category}</span>
-                          </div>
-                          <AdminOnly>
-                            <button className="btn-danger btn-sm" onClick={() => handleRemoveAttendee(a)}>
-                              Remove
-                            </button>
-                          </AdminOnly>
-                        </div>
-                      ))}
+          {attendeesModal && (() => {
+            const humanDate = new Date(attendeesModal.date + "T00:00:00").toLocaleDateString("default", {
+              weekday: "long", month: "long", day: "numeric", year: "numeric",
+            });
+            const count = attendeesModal.attendees.length;
+            return (
+              <div className="modal-overlay" onClick={() => setAttendeesModal(null)}>
+                <div className="modal-content attendees-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="attendees-modal-header">
+                    <div className="attendees-modal-title">
+                      <h2>{serviceName}</h2>
+                      <div className="attendees-modal-meta">
+                        <span>{humanDate}</span>
+                        {!attendeesLoading && (
+                          <>
+                            <span className="meta-dot">·</span>
+                            <span>{count} attendee{count === 1 ? "" : "s"}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="modal-buttons" style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--border)" }}>
-                  <button className="btn-secondary" onClick={() => setAttendeesModal(null)}>Close</button>
+                    <button
+                      type="button"
+                      className="modal-close-btn"
+                      onClick={() => setAttendeesModal(null)}
+                      aria-label="Close"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="attendees-modal-body">
+                    {attendeesLoading ? (
+                      <div className="loading-spinner"><div className="spinner" /><p>Loading…</p></div>
+                    ) : count === 0 ? (
+                      <div className="attendees-empty">No attendees recorded.</div>
+                    ) : (
+                      <ul className="attendees-list">
+                        {attendeesModal.attendees.map(a => (
+                          <li key={a.id} className="attendee-row">
+                            <div className="attendee-info">
+                              <span className="attendee-name">{a.name}</span>
+                              <span className={`category-badge category-${a.category?.toLowerCase()}`}>{a.category}</span>
+                            </div>
+                            <AdminOnly>
+                              <button
+                                className="attendee-remove-btn"
+                                onClick={() => handleRemoveAttendee(a)}
+                                aria-label={`Remove ${a.name}`}
+                                title="Remove attendee"
+                              >
+                                <Trash2 size={14} strokeWidth={2.25} />
+                              </button>
+                            </AdminOnly>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         </div>
       </div>

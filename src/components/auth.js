@@ -7,6 +7,9 @@ import {
 } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { AlertCircle, CheckCircle2, Mail, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
+
+const logo = "/z1-logo.jpeg";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -14,6 +17,8 @@ const Auth = () => {
   const [mode, setMode] = useState("login"); // 'login' | 'register' | 'forgot'
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const allowedUser = async (email) => {
@@ -44,14 +49,15 @@ const Auth = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       const isAllowed = await allowedUser(email);
       if (!isAllowed) {
-        if (mode === "register") {
-          setError("❌ Email not pre-approved. Contact an administrator to add your email to the allowed users list.");
-        } else {
-          setError("❌ Access denied. Your email is not authorized for this system.");
-        }
+        setError(
+          mode === "register"
+            ? "Email not pre-approved. Contact an administrator to add your email to the allowed users list."
+            : "Access denied. Your email is not authorized for this system."
+        );
         return;
       }
 
@@ -60,33 +66,40 @@ const Auth = () => {
         navigate("/");
       } else if (mode === "register") {
         await createUserWithEmailAndPassword(auth, email, password);
-        setMessage("✅ Account created successfully! You can now log in.");
+        setMessage("Account created successfully. You can now sign in.");
         setMode("login");
-        setPassword(""); // Clear password for security
+        setPassword("");
       } else if (mode === "forgot") {
         await sendPasswordResetEmail(auth, email);
-        setMessage("📩 Password reset email sent.");
+        setMessage("Password reset email sent. Check your inbox.");
         setMode("login");
       }
     } catch (err) {
-      if (err.code === "auth/user-not-found") {
-        setError("❌ No account found with this email. Try registering first.");
-      } else if (err.code === "auth/email-already-in-use") {
-        setError("❌ An account with this email already exists. Try logging in instead.");
-      } else if (err.code === "auth/wrong-password") {
-        setError("❌ Incorrect password. Please try again or use 'Forgot Password'.");
-      } else if (err.code === "auth/weak-password") {
-        setError("❌ Password should be at least 6 characters long.");
-      } else if (err.code === "auth/invalid-email") {
-        setError("❌ Please enter a valid email address.");
-      } else if (err.code === "auth/too-many-requests") {
-        setError("❌ Too many failed attempts. Please try again later.");
-      } else {
-        setError("❌ Authentication error. Please try again.");
-        console.error("Auth error:", err);
-      }
+      const codeMap = {
+        "auth/user-not-found":       "No account found with this email. Try registering first.",
+        "auth/email-already-in-use": "An account with this email already exists. Try signing in instead.",
+        "auth/wrong-password":       "Incorrect password. Please try again or use 'Forgot Password'.",
+        "auth/weak-password":        "Password should be at least 6 characters long.",
+        "auth/invalid-email":        "Please enter a valid email address.",
+        "auth/too-many-requests":    "Too many failed attempts. Please try again later.",
+      };
+      setError(codeMap[err.code] || "Authentication error. Please try again.");
+      if (!codeMap[err.code]) console.error("Auth error:", err);
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const switchMode = (next) => {
+    setMode(next);
+    setError("");
+    setMessage("");
+  };
+
+  const submitLabel =
+    mode === "login" ? "Sign In"
+    : mode === "register" ? "Create Account"
+    : "Send Reset Email";
 
   return (
     <div className="auth-container">
@@ -95,11 +108,14 @@ const Auth = () => {
           type="button"
           className="auth-back-btn"
           onClick={() => navigate("/welcome")}
-          aria-label="Back to home"
+          aria-label="Back to welcome"
         >
-          ← Back
+          <ArrowLeft size={14} strokeWidth={2.5} />
+          <span>Back</span>
         </button>
+
         <div className="auth-header">
+          <img src={logo} alt="Church Logo" className="auth-logo" />
           <h1 className="auth-title">
             {mode === "login"
               ? "Welcome Back"
@@ -118,109 +134,110 @@ const Auth = () => {
 
         <div className="auth-body">
           {error && (
-            <div className="auth-error">
+            <div className="auth-error" role="alert">
+              <AlertCircle size={16} strokeWidth={2.5} className="auth-msg-icon" />
               <span>{error}</span>
             </div>
           )}
 
           {message && (
-            <div className="success-banner">
+            <div className="auth-success" role="status">
+              <CheckCircle2 size={16} strokeWidth={2.5} className="auth-msg-icon" />
               <span>{message}</span>
             </div>
           )}
 
           <form className="auth-form" onSubmit={(e) => { e.preventDefault(); handleAuth(); }}>
             <div className="auth-input-group">
-              <label htmlFor="email" className="auth-label">
-                Email Address
-              </label>
+              <label htmlFor="email" className="auth-label">Email Address</label>
               <input
                 type="email"
                 id="email"
                 className="auth-input"
-                placeholder="Enter your email"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
               />
             </div>
 
             {mode !== "forgot" && (
               <div className="auth-input-group">
-                <label htmlFor="password" className="auth-label">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  className="auth-input"
-                  placeholder={mode === "register" ? "Create a password" : "Enter your password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <label htmlFor="password" className="auth-label">Password</label>
+                <div className="auth-input-wrap">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    className="auth-input auth-input-with-trailing"
+                    placeholder={mode === "register" ? "Create a password" : "Enter your password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={mode === "register" ? "new-password" : "current-password"}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="auth-input-trailing-btn"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             )}
 
-            <button type="submit" className="auth-btn">
-              {mode === "login"
-                ? "Sign In"
-                : mode === "register"
-                ? "Create Account"
-                : "Send Reset Email"}
+            <button type="submit" className="auth-btn" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 size={16} className="auth-btn-spinner" strokeWidth={2.5} />
+                  <span>
+                    {mode === "login" ? "Signing in…" : mode === "register" ? "Creating account…" : "Sending…"}
+                  </span>
+                </>
+              ) : (
+                <span>{submitLabel}</span>
+              )}
             </button>
           </form>
 
           <div className="auth-links">
-          {mode === "login" && (
-            <>
-              <button
-                onClick={() => setMode("register")}
-                className="auth-link-btn"
-              >
-                Need an account? Register here
-              </button>
-              <button
-                onClick={() => setMode("forgot")}
-                className="auth-link-btn"
-              >
-                Forgot your password?
-              </button>
-            </>
-          )}
+            {mode === "login" && (
+              <>
+                <button onClick={() => switchMode("register")} className="auth-link-btn">
+                  Need an account? Register here
+                </button>
+                <button onClick={() => switchMode("forgot")} className="auth-link-btn">
+                  Forgot your password?
+                </button>
+              </>
+            )}
 
-          {(mode === "register" || mode === "forgot") && (
-            <button
-              onClick={() => setMode("login")}
-              className="auth-link-btn"
-            >
-              ← Back to Login
-            </button>
-          )}
-        </div>
+            {(mode === "register" || mode === "forgot") && (
+              <button onClick={() => switchMode("login")} className="auth-link-btn">
+                <ArrowLeft size={12} strokeWidth={2.5} className="icon-inline" style={{ marginRight: '0.3rem' }} />
+                Back to Sign In
+              </button>
+            )}
+          </div>
 
           {mode === "register" && (
             <div className="auth-notice">
-              <p>
-                <strong>Registration Requirements:</strong>
-              </p>
-              <ul style={{ margin: "0.5rem 0 0 1rem", paddingLeft: 0 }}>
+              <p className="auth-notice-title">Registration requirements</p>
+              <ul className="auth-notice-list">
                 <li>Your email must be pre-approved by an administrator</li>
                 <li>Password must be at least 6 characters long</li>
                 <li>You will create your own password during registration</li>
               </ul>
-              <p style={{ marginTop: "0.75rem" }}>
-                If your email is not approved, please contact your administrator to add it to the system.
-              </p>
             </div>
           )}
 
           {mode === "forgot" && (
             <div className="auth-notice">
-              <p>
-                <strong>Password Reset:</strong> Enter your email address and we'll send you a link to reset your password.
-                Make sure to check your spam folder if you don't see the email.
-              </p>
+              <Mail size={14} className="icon-inline" style={{ marginRight: '0.35rem' }} />
+              Enter your email and we'll send a reset link. Check your spam folder if it doesn't arrive in a few minutes.
             </div>
           )}
         </div>

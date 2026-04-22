@@ -7,6 +7,14 @@ import Navigation from "../components/Navigation";
 import generateReport from "../components/reportGenerator";
 import { getServiceType } from "../utils/serviceType";
 import { useAuth } from "../context/authContext";
+import { useAttendanceRecords, useMembers } from "../hooks/useFirestoreCollection";
+import { SkeletonKpiRow } from "../components/Skeleton";
+import {
+  Users, ClipboardList, Calendar, Church,
+  CheckCircle2, BarChart3, FileText, UserRound, ScrollText,
+  Plus, Minus, RefreshCw, Pencil, UserPlus, UserMinus, Upload, Settings,
+  Flame, Trophy, ArrowRight,
+} from "lucide-react";
 
 const logo = "/z1-logo.jpeg";
 
@@ -62,16 +70,16 @@ const AnimatedNum = ({ value, loading }) => {
 };
 
 const ACTION_LABELS = {
-  'Attendance Added':      { label: 'marked present', icon: '+', color: 'teal' },
-  'Bulk Attendance Added': { label: 'bulk attendance', icon: '++', color: 'teal' },
-  'Attendance Removed':    { label: 'removed', icon: '–', color: 'amber' },
-  'Category Change':       { label: 'category update', icon: '↻', color: 'amber' },
-  'Name Change':           { label: 'renamed', icon: '✎', color: 'blue' },
-  'Member Added':          { label: 'added member', icon: '👤', color: 'teal' },
-  'CSV Import':            { label: 'CSV import', icon: '⤓', color: 'teal' },
-  'User Added':            { label: 'user added', icon: '👤', color: 'teal' },
-  'User Removed':          { label: 'user removed', icon: '👤–', color: 'gray' },
-  'User Role Updated':     { label: 'role updated', icon: '⚙', color: 'blue' },
+  'Attendance Added':      { label: 'marked present', Icon: Plus,       color: 'teal' },
+  'Bulk Attendance Added': { label: 'bulk attendance', Icon: UserPlus,  color: 'teal' },
+  'Attendance Removed':    { label: 'removed',        Icon: Minus,      color: 'amber' },
+  'Category Change':       { label: 'category update', Icon: RefreshCw, color: 'amber' },
+  'Name Change':           { label: 'renamed',        Icon: Pencil,     color: 'blue' },
+  'Member Added':          { label: 'added member',   Icon: UserPlus,   color: 'teal' },
+  'CSV Import':            { label: 'CSV import',     Icon: Upload,     color: 'teal' },
+  'User Added':            { label: 'user added',     Icon: UserPlus,   color: 'teal' },
+  'User Removed':          { label: 'user removed',   Icon: UserMinus,  color: 'gray' },
+  'User Role Updated':     { label: 'role updated',   Icon: Settings,   color: 'blue' },
 };
 
 const relativeTime = (date) => {
@@ -119,6 +127,9 @@ export default function Home() {
   const auth = getAuth();
   const { displayNameFor } = useAuth();
 
+  const { data: attendanceRecords, loading: attendanceLoading } = useAttendanceRecords();
+  const { data: membershipRecords, loading: membersLoading } = useMembers();
+
   const today = new Date();
   const currentDayName = daysOfWeek[today.getDay()];
   const isSundayOrMonday = today.getDay() === 0 || today.getDay() === 1;
@@ -128,77 +139,11 @@ export default function Home() {
     return () => unsubscribe();
   }, [auth]);
 
-  // Fetch all dashboard data in parallel
+  // Fetch the recent-activity log feed (small, non-cached query)
   useEffect(() => {
-    const load = async () => {
+    const loadLogs = async () => {
       try {
-        const [memberSnap, attendanceSnap, logSnap] = await Promise.all([
-          getDocs(collection(db, "membership")),
-          getDocs(collection(db, "attendance")),
-          getDocs(query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(5))),
-        ]);
-
-        const memberSet = new Set(
-          memberSnap.docs.map(d => normalizeName(d.data().name)).filter(Boolean)
-        );
-
-        const now = new Date();
-        const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        const serviceSet = new Set();
-        let thisMonth = 0;
-
-        // Compute streaks from attendance (per service type)
-        const sundayDates = new Set();
-        const mondayDates = new Set();
-        const memberAttend = new Map();
-
-        attendanceSnap.forEach(d => {
-          const data = d.data();
-          const { serviceName, date, name, category } = data;
-          if (serviceName) serviceSet.add(serviceName.trim());
-          if (date && date.startsWith(thisMonthStr)) thisMonth++;
-
-          const type = getServiceType(data);
-          if (type === 'Sunday') sundayDates.add(date);
-          else if (type === 'Monday') mondayDates.add(date);
-
-          const key = normalizeName(name);
-          if (!memberAttend.has(key)) {
-            memberAttend.set(key, { name: name?.trim(), category, sun: new Set(), mon: new Set() });
-          }
-          const entry = memberAttend.get(key);
-          if (type === 'Sunday') entry.sun.add(date);
-          else if (type === 'Monday') entry.mon.add(date);
-        });
-
-        const sunSorted = Array.from(sundayDates).sort();
-        const monSorted = Array.from(mondayDates).sort();
-
-        const streakList = Array.from(memberAttend.values())
-          .map(m => {
-            const s = computeStreaks(sunSorted, m.sun);
-            const mo = computeStreaks(monSorted, m.mon);
-            return {
-              name: m.name,
-              category: m.category,
-              currentStreak: Math.max(s.currentStreak, mo.currentStreak),
-              type: s.currentStreak >= mo.currentStreak ? 'Sunday' : 'Monday',
-            };
-          })
-          .filter(s => s.currentStreak > 0)
-          .sort((a, b) => b.currentStreak - a.currentStreak)
-          .slice(0, 5);
-
-        setTopStreaks(streakList);
-
-        setStats({
-          totalMembers: memberSet.size,
-          totalRecords: attendanceSnap.size,
-          thisMonthCount: thisMonth,
-          totalServices: serviceSet.size,
-          loading: false,
-        });
-
+        const logSnap = await getDocs(query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(5)));
         setRecentActivity(
           logSnap.docs.map(d => ({
             id: d.id,
@@ -206,29 +151,88 @@ export default function Home() {
             timestamp: d.data().timestamp?.toDate() || new Date(),
           }))
         );
-        setFeedLoading(false);
       } catch (err) {
-        console.error("Dashboard load error:", err);
-        setStats(s => ({ ...s, loading: false }));
+        console.error("Log load error:", err);
+      } finally {
         setFeedLoading(false);
       }
     };
-    load();
+    loadLogs();
   }, []);
 
+  // Derive stats + streaks from the cached attendance + membership data
   useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const snap = await getDocs(collection(db, "attendance"));
-        const s = new Set();
-        snap.forEach(d => { if (d.data().serviceName) s.add(d.data().serviceName.trim()); });
-        setServiceList(Array.from(s).sort());
-      } catch (err) {
-        console.error(err);
+    if (attendanceLoading || membersLoading) return;
+    if (!attendanceRecords || !membershipRecords) {
+      setStats(s => ({ ...s, loading: false }));
+      return;
+    }
+
+    const memberSet = new Set(
+      membershipRecords.map(d => normalizeName(d.name)).filter(Boolean)
+    );
+
+    const now = new Date();
+    const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const serviceSet = new Set();
+    let thisMonth = 0;
+
+    const sundayDates = new Set();
+    const mondayDates = new Set();
+    const memberAttend = new Map();
+
+    attendanceRecords.forEach(data => {
+      const { serviceName, date, name, category } = data;
+      if (serviceName) serviceSet.add(serviceName.trim());
+      if (date && date.startsWith(thisMonthStr)) thisMonth++;
+
+      const type = getServiceType(data);
+      if (type === 'Sunday') sundayDates.add(date);
+      else if (type === 'Monday') mondayDates.add(date);
+
+      const key = normalizeName(name);
+      if (!memberAttend.has(key)) {
+        memberAttend.set(key, { name: name?.trim(), category, sun: new Set(), mon: new Set() });
       }
-    };
-    if (isModalOpen) fetchServices();
-  }, [isModalOpen]);
+      const entry = memberAttend.get(key);
+      if (type === 'Sunday') entry.sun.add(date);
+      else if (type === 'Monday') entry.mon.add(date);
+    });
+
+    const sunSorted = Array.from(sundayDates).sort();
+    const monSorted = Array.from(mondayDates).sort();
+
+    const streakList = Array.from(memberAttend.values())
+      .map(m => {
+        const s = computeStreaks(sunSorted, m.sun);
+        const mo = computeStreaks(monSorted, m.mon);
+        return {
+          name: m.name,
+          category: m.category,
+          currentStreak: Math.max(s.currentStreak, mo.currentStreak),
+          type: s.currentStreak >= mo.currentStreak ? 'Sunday' : 'Monday',
+        };
+      })
+      .filter(s => s.currentStreak > 0)
+      .sort((a, b) => b.currentStreak - a.currentStreak)
+      .slice(0, 5);
+
+    setTopStreaks(streakList);
+    setStats({
+      totalMembers: memberSet.size,
+      totalRecords: attendanceRecords.length,
+      thisMonthCount: thisMonth,
+      totalServices: serviceSet.size,
+      loading: false,
+    });
+  }, [attendanceRecords, membershipRecords, attendanceLoading, membersLoading]);
+
+  useEffect(() => {
+    if (!isModalOpen || !attendanceRecords) return;
+    const s = new Set();
+    attendanceRecords.forEach(d => { if (d.serviceName) s.add(d.serviceName.trim()); });
+    setServiceList(Array.from(s).sort());
+  }, [isModalOpen, attendanceRecords]);
 
   const handleReportSubmit = (e) => {
     e.preventDefault();
@@ -270,72 +274,79 @@ export default function Home() {
             </div>
             {isSundayOrMonday && (
               <button className="hero-today-btn" onClick={() => navigate("/attendance")}>
-                Mark today's attendance →
+                Mark today's attendance <ArrowRight size={16} className="icon-inline" style={{ marginLeft: '0.3rem' }} />
               </button>
             )}
           </div>
 
           {/* Stats row with animated counters */}
-          <div className="stats-row">
-            <div className="stat-card-home">
-              <div className="stat-icon blue">👥</div>
-              <div className="stat-content">
-                <div className="stat-label-home">Total Members</div>
-                <div className="stat-value-home">
-                  <AnimatedNum value={stats.totalMembers} loading={stats.loading} />
+          {stats.loading ? (
+            <SkeletonKpiRow count={4} />
+          ) : (
+            <div className="stats-row">
+              <div className="stat-card-home">
+                <div className="stat-icon blue"><Users size={22} /></div>
+                <div className="stat-content">
+                  <div className="stat-label-home">Total Members</div>
+                  <div className="stat-value-home">
+                    <AnimatedNum value={stats.totalMembers} loading={stats.loading} />
+                  </div>
+                  <div className="stat-sub">registered</div>
+                </div>
+              </div>
+              <div className="stat-card-home">
+                <div className="stat-icon teal"><ClipboardList size={22} /></div>
+                <div className="stat-content">
+                  <div className="stat-label-home">Attendance Records</div>
+                  <div className="stat-value-home">
+                    <AnimatedNum value={stats.totalRecords} loading={stats.loading} />
+                  </div>
+                  <div className="stat-sub">all time</div>
+                </div>
+              </div>
+              <div className="stat-card-home">
+                <div className="stat-icon green"><Calendar size={22} /></div>
+                <div className="stat-content">
+                  <div className="stat-label-home">This Month</div>
+                  <div className="stat-value-home">
+                    <AnimatedNum value={stats.thisMonthCount} loading={stats.loading} />
+                  </div>
+                  <div className="stat-sub">{monthLabel}</div>
+                </div>
+              </div>
+              <div className="stat-card-home">
+                <div className="stat-icon amber"><Church size={22} /></div>
+                <div className="stat-content">
+                  <div className="stat-label-home">Services</div>
+                  <div className="stat-value-home">
+                    <AnimatedNum value={stats.totalServices} loading={stats.loading} />
+                  </div>
+                  <div className="stat-sub">unique</div>
                 </div>
               </div>
             </div>
-            <div className="stat-card-home">
-              <div className="stat-icon teal">📋</div>
-              <div className="stat-content">
-                <div className="stat-label-home">Attendance Records</div>
-                <div className="stat-value-home">
-                  <AnimatedNum value={stats.totalRecords} loading={stats.loading} />
-                </div>
-              </div>
-            </div>
-            <div className="stat-card-home">
-              <div className="stat-icon green">📅</div>
-              <div className="stat-content">
-                <div className="stat-label-home">This Month</div>
-                <div className="stat-value-home">
-                  <AnimatedNum value={stats.thisMonthCount} loading={stats.loading} />
-                </div>
-                <div className="stat-sub">{monthLabel}</div>
-              </div>
-            </div>
-            <div className="stat-card-home">
-              <div className="stat-icon amber">🏛️</div>
-              <div className="stat-content">
-                <div className="stat-label-home">Services</div>
-                <div className="stat-value-home">
-                  <AnimatedNum value={stats.totalServices} loading={stats.loading} />
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Quick actions */}
           <div className="quick-actions">
             <button className="action-button" onClick={() => navigate("/attendance")}>
-              <div className="action-icon teal">✅</div>
+              <div className="action-icon teal"><CheckCircle2 size={22} /></div>
               Mark Attendance
             </button>
             <button className="action-button" onClick={() => navigate("/analytics")}>
-              <div className="action-icon blue">📊</div>
+              <div className="action-icon blue"><BarChart3 size={22} /></div>
               Analytics
             </button>
             <button className="action-button" onClick={() => setIsModalOpen(true)}>
-              <div className="action-icon green">📄</div>
+              <div className="action-icon green"><FileText size={22} /></div>
               Generate Report
             </button>
             <button className="action-button" onClick={() => navigate("/membership")}>
-              <div className="action-icon purple">👤</div>
+              <div className="action-icon purple"><UserRound size={22} /></div>
               Members
             </button>
             <button className="action-button" onClick={() => navigate("/logs")}>
-              <div className="action-icon amber">📋</div>
+              <div className="action-icon amber"><ScrollText size={22} /></div>
               Audit Logs
             </button>
           </div>
@@ -355,10 +366,13 @@ export default function Home() {
                 ) : (
                   <ul className="activity-list">
                     {recentActivity.map(log => {
-                      const cfg = ACTION_LABELS[log.action] || { label: log.action, icon: '•', color: 'gray' };
+                      const cfg = ACTION_LABELS[log.action] || { label: log.action, Icon: null, color: 'gray' };
+                      const Icon = cfg.Icon;
                       return (
                         <li key={log.id} className="activity-item">
-                          <span className={`activity-dot activity-${cfg.color}`}>{cfg.icon}</span>
+                          <span className={`activity-dot activity-${cfg.color}`}>
+                            {Icon ? <Icon size={14} strokeWidth={2.5} /> : <span>•</span>}
+                          </span>
                           <div className="activity-text">
                             <div className="activity-headline">
                               <strong>{displayNameFor(log.user)}</strong> · {cfg.label}
@@ -390,12 +404,17 @@ export default function Home() {
                   <ul className="streak-list">
                     {topStreaks.map((s, i) => (
                       <li key={s.name + i} className="streak-item">
-                        <span className="streak-rank">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                        <span className={`streak-rank ${i < 3 ? `medal-${i+1}` : ''}`}>
+                          {i < 3 ? <Trophy size={16} strokeWidth={2.5} /> : `${i + 1}.`}
+                        </span>
                         <div className="streak-info">
                           <div className="streak-name">{s.name}</div>
                           <div className="streak-sub">{s.category} · {s.type}</div>
                         </div>
-                        <span className="streak-num">🔥 {s.currentStreak}</span>
+                        <span className="streak-num">
+                          <Flame size={14} className="icon-inline" style={{ marginRight: '0.25rem', color: '#f97316' }} />
+                          {s.currentStreak}
+                        </span>
                       </li>
                     ))}
                   </ul>

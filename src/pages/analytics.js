@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Navigation from "../components/Navigation";
 import AnalyticsComponent, { LineChart, BarChart } from "../components/analytics";
 import { getServiceType } from "../utils/serviceType";
+import { useAttendanceRecords } from "../hooks/useFirestoreCollection";
+import { useToast } from "../components/Toast";
+import { Download } from "lucide-react";
+import { SkeletonKpiRow, SkeletonChart } from "../components/Skeleton";
 
 const COLORS = [
   "#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6",
@@ -26,42 +28,30 @@ const CATEGORY_COLORS = {
 const categoryColor = (cat) => CATEGORY_COLORS[cat?.toUpperCase()] || "#64748b";
 
 export default function Analytics() {
-  const [records, setRecords] = useState([]);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [serviceTypeFilter, setServiceTypeFilter] = useState("All");
   const [monthFilter, setMonthFilter] = useState("All");
   const [activeSection, setActiveSection] = useState("overview"); // overview | services | categories
   const navigate = useNavigate();
   const auth = getAuth();
+  const toast = useToast();
+
+  const { data: rawRecords, loading } = useAttendanceRecords();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, [auth]);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const snap = await getDocs(collection(db, "attendance"));
-        const rows = snap.docs.map(d => {
-          const data = d.data();
-          return {
-            serviceName: data.serviceName,
-            category: data.category,
-            date: data.date,
-            serviceType: getServiceType(data),
-          };
-        });
-        setRecords(rows);
-      } catch (err) {
-        console.error("Error fetching attendance:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, []);
+  const records = useMemo(() => {
+    if (!rawRecords) return [];
+    return rawRecords.map(data => ({
+      serviceName: data.serviceName,
+      category: data.category,
+      date: data.date,
+      serviceType: getServiceType(data),
+    }));
+  }, [rawRecords]);
 
   const availableMonths = useMemo(() => {
     const set = new Set();
@@ -278,13 +268,54 @@ export default function Analytics() {
     return rows.map(r => ({ ...r, barPct: (r.total / maxTotal) * 100 }));
   }, [serviceData, serviceSort, totalAttendance]);
 
+  const exportServicesCSV = () => {
+    if (serviceTableRows.length === 0) {
+      toast.info("No service data to export.");
+      return;
+    }
+    const escape = (v) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = "Rank,Service,Type,Attendance,Percent,Dates";
+    const lines = serviceTableRows.map((row, i) => [
+      i + 1,
+      escape(row.name),
+      row.type,
+      row.total,
+      Math.round(row.pct),
+      row.dates,
+    ].join(","));
+
+    const filterBits = [];
+    if (serviceTypeFilter !== "All") filterBits.push(serviceTypeFilter);
+    if (monthFilter !== "All") filterBits.push(monthFilter);
+    const suffix = filterBits.length ? `_${filterBits.join("_")}` : "";
+    const stamp = new Date().toISOString().split("T")[0];
+    const filename = `Services${suffix}_${stamp}.csv`;
+
+    const blob = new Blob([header + "\n" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${serviceTableRows.length} services.`);
+  };
+
   if (loading) {
     return (
       <>
         <Navigation user={user} />
         <div className="page-content">
           <div className="analytics-container">
-            <div className="loading-spinner"><div className="spinner" /><p>Loading analytics...</p></div>
+            <div className="page-header-clean">
+              <h1>Analytics</h1>
+              <p><span className="skeleton skeleton-line" style={{ width: "220px" }} /></p>
+            </div>
+            <SkeletonKpiRow count={4} />
+            <SkeletonChart height={320} />
           </div>
         </div>
       </>
@@ -345,37 +376,44 @@ export default function Analytics() {
             <div className="kpi-card">
               <div className="kpi-label">Growth vs Prev</div>
               <div className={`kpi-value ${kpis.growthPct > 0 ? "kpi-up" : kpis.growthPct < 0 ? "kpi-down" : ""}`}>
-                {kpis.growthPct === null ? "—" : `${kpis.growthPct > 0 ? "↑" : kpis.growthPct < 0 ? "↓" : ""} ${Math.abs(kpis.growthPct)}%`}
+                <span className="kpi-arrow" aria-hidden="true">
+                  {kpis.growthPct === null ? "" : kpis.growthPct > 0 ? "↑" : kpis.growthPct < 0 ? "↓" : ""}
+                </span>
+                {kpis.growthPct === null ? "—" : `${Math.abs(kpis.growthPct)}%`}
               </div>
               <div className="kpi-sub">{monthFilter === "All" ? "select a month" : "vs last month"}</div>
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="controls-card">
-            <div className="controls-header">
-              <h3>Filters</h3>
-            </div>
-            <div className="controls-grid">
-              <div className="control-group">
-                <label>Service Type</label>
-                <select value={serviceTypeFilter} onChange={(e) => setServiceTypeFilter(e.target.value)} className="select-clean">
-                  <option value="All">All Types</option>
-                  <option value="Sunday">Sunday</option>
-                  <option value="Monday">Monday</option>
-                </select>
-              </div>
-              <div className="control-group">
-                <label>Month</label>
-                <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="select-clean">
-                  <option value="All">All Time</option>
-                  {availableMonths.map(m => {
-                    const label = new Date(m + "-01").toLocaleDateString("default", { month: "long", year: "numeric" });
-                    return <option key={m} value={m}>{label}</option>;
-                  })}
-                </select>
-              </div>
-            </div>
+          {/* Filters — inline toolbar */}
+          <div className="inline-toolbar" role="group" aria-label="Analytics filters">
+            <label className="inline-toolbar-group">
+              <span className="inline-toolbar-label">Type</span>
+              <select value={serviceTypeFilter} onChange={(e) => setServiceTypeFilter(e.target.value)} className="select-clean">
+                <option value="All">All</option>
+                <option value="Sunday">Sunday</option>
+                <option value="Monday">Monday</option>
+              </select>
+            </label>
+            <label className="inline-toolbar-group">
+              <span className="inline-toolbar-label">Month</span>
+              <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="select-clean">
+                <option value="All">All Time</option>
+                {availableMonths.map(m => {
+                  const label = new Date(m + "-01").toLocaleDateString("default", { month: "long", year: "numeric" });
+                  return <option key={m} value={m}>{label}</option>;
+                })}
+              </select>
+            </label>
+            {(serviceTypeFilter !== "All" || monthFilter !== "All") && (
+              <button
+                type="button"
+                className="refresh-btn-small"
+                onClick={() => { setServiceTypeFilter("All"); setMonthFilter("All"); }}
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           {/* Section tabs */}
@@ -405,7 +443,7 @@ export default function Analytics() {
                     <span className="table-info">{trendData.labels.length} dates · Sunday vs Monday</span>
                   </div>
                   <div style={{ padding: "1.25rem" }}>
-                    <LineChart chartData={trendData} height={280} />
+                    <LineChart chartData={trendData} height={280} exportName="attendance-trend" />
                   </div>
                 </div>
               )}
@@ -460,7 +498,7 @@ export default function Analytics() {
                       <span className="table-info">{dateBarData.labels.length} date{dateBarData.labels.length !== 1 ? "s" : ""}</span>
                     </div>
                     <div style={{ padding: "1.25rem" }}>
-                      <BarChart chartData={dateBarData} height={320} />
+                      <BarChart chartData={dateBarData} height={320} exportName="attendance-by-date" />
                     </div>
                   </div>
                 );
@@ -485,9 +523,9 @@ export default function Analytics() {
                           {serviceComparison.map(s => (
                             <tr key={s.name}>
                               <td style={{ fontWeight: 500 }}>{s.name}</td>
-                              <td style={{ textAlign: "center", fontWeight: 700 }}>{s.curr}</td>
-                              <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{s.prev}</td>
-                              <td style={{ textAlign: "center" }}>
+                              <td className="cell-num cell-bold">{s.curr}</td>
+                              <td className="cell-num-muted">{s.prev}</td>
+                              <td className="cell-center">
                                 <span className={`trend-pill ${s.change > 0 ? "trend-up" : s.change < 0 ? "trend-down" : "trend-flat"}`}>
                                   {s.change > 0 ? "↑" : s.change < 0 ? "↓" : "—"} {Math.abs(s.change)}%
                                 </span>
@@ -509,17 +547,29 @@ export default function Analytics() {
 
               <div className="table-card">
                 <div className="table-header">
-                  <h3>All Services</h3>
-                  <span className="table-info">
-                    {serviceTableRows.length} services
-                    <span className="edit-hint"> — click a row for breakdown</span>
-                  </span>
+                  <div className="table-header-left">
+                    <h3>All Services</h3>
+                    <span className="table-info">
+                      {serviceTableRows.length} services
+                      <span className="edit-hint"> — click a row for breakdown</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="refresh-btn-small"
+                    onClick={exportServicesCSV}
+                    disabled={serviceTableRows.length === 0}
+                    aria-label="Export services as CSV"
+                  >
+                    <Download size={12} strokeWidth={2.5} className="icon-inline" style={{ marginRight: '0.3rem' }} />
+                    Export CSV
+                  </button>
                 </div>
                 <div className="table-container-clean">
                   <table className="members-table-clean services-table">
                     <thead>
                       <tr>
-                        <th style={{ width: "3rem", textAlign: "center" }}>#</th>
+                        <th className="cell-center" style={{ width: "3rem" }}>#</th>
                         <th
                           className={`sortable-header ${serviceSort.field === "name" ? "sorted-active" : ""}`}
                           onClick={() => toggleServiceSort("name")}
@@ -565,9 +615,9 @@ export default function Analytics() {
                           onClick={() => navigate(`/analytics/${encodeURIComponent(row.name)}`)}
                           style={{ cursor: "pointer" }}
                         >
-                          <td style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.8rem" }}>{i + 1}</td>
+                          <td className="cell-num-muted" style={{ fontSize: "0.8rem" }}>{i + 1}</td>
                           <td style={{ fontWeight: 500 }}>{row.name}</td>
-                          <td style={{ textAlign: "center" }}>
+                          <td className="cell-center">
                             <span className={`service-type-pill type-${row.type.toLowerCase()}`}>{row.type}</span>
                           </td>
                           <td>
@@ -581,8 +631,8 @@ export default function Analytics() {
                               <span className="attendance-bar-num">{row.total.toLocaleString()}</span>
                             </div>
                           </td>
-                          <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{Math.round(row.pct)}%</td>
-                          <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{row.dates}</td>
+                          <td className="cell-num-muted">{Math.round(row.pct)}%</td>
+                          <td className="cell-num-muted">{row.dates}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -604,7 +654,7 @@ export default function Analytics() {
                   <span className="table-info">{categoryChartData.labels.length} categories</span>
                 </div>
                 <div style={{ padding: "1.25rem" }}>
-                  <AnalyticsComponent chartData={categoryChartData} />
+                  <AnalyticsComponent chartData={categoryChartData} exportName="category-distribution" />
                 </div>
               </div>
             );

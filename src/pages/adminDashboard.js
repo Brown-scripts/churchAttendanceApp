@@ -7,6 +7,7 @@ import {
 import { db } from "../firebase";
 import { useAuth } from "../context/authContext";
 import Navigation from "../components/Navigation";
+import { useConfirm } from "../components/ConfirmDialog";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
@@ -20,8 +21,10 @@ export default function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState("All");
   const [editingName, setEditingName] = useState(null); // user id being edited
   const [editNameValue, setEditNameValue] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
   const { user, isAdmin, refreshDisplayNames } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const fetchUsers = async () => {
     try {
@@ -69,6 +72,7 @@ export default function AdminDashboard() {
         timestamp: serverTimestamp(),
       });
       setNewEmail(""); setNewDisplayName(""); setNewRole("user");
+      setShowAddModal(false);
       showSuccess(`${newEmail} added successfully`);
       fetchUsers();
       refreshDisplayNames?.();
@@ -120,7 +124,13 @@ export default function AdminDashboard() {
   };
 
   const handleRemove = async (userId, email) => {
-    if (!window.confirm(`Remove ${email}?`)) return;
+    const ok = await confirm({
+      title: `Remove ${email}?`,
+      message: "They'll lose access to the system immediately. You can re-add them later.",
+      confirmLabel: "Remove",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteDoc(doc(db, "allowedUsers", userId));
       await addDoc(collection(db, "logs"), {
@@ -221,70 +231,42 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Add user */}
-          <div className="controls-card">
-            <div className="controls-header">
-              <h3>Add New User</h3>
-            </div>
-            <form onSubmit={handleAddUser} className="add-user-form">
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  required
-                />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Display Name <span className="text-muted">(optional)</span></label>
-                <input
-                  type="text"
-                  value={newDisplayName}
-                  onChange={(e) => setNewDisplayName(e.target.value)}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Role</label>
-                <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="select-clean">
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <button type="submit" className="btn-primary">Add User</button>
-              </div>
-            </form>
-          </div>
-
-          {/* Search & filter bar */}
-          <div className="logs-toolbar">
-            <input
-              type="text"
-              className="logs-search"
-              placeholder="🔍 Search email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="logs-filter-select"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="All">All Roles</option>
-              <option value="admin">Admins</option>
-              <option value="user">Users</option>
-            </select>
-            <button onClick={fetchUsers} className="btn-secondary btn-sm">Refresh</button>
-          </div>
-
           {/* Users list */}
           <div className="table-card">
             <div className="table-header">
-              <h3>Users</h3>
-              <span className="table-info">{filteredUsers.length} of {users.length}</span>
+              <div className="table-header-left">
+                <h3>Users</h3>
+                <span className="table-info">{filteredUsers.length} of {users.length}</span>
+              </div>
+              <div className="table-header-actions">
+                <button onClick={fetchUsers} className="refresh-btn-small">Refresh</button>
+                <button onClick={() => setShowAddModal(true)} className="btn-primary btn-sm">+ Add User</button>
+              </div>
+            </div>
+
+            <div className="table-filter-bar">
+              <div className="control-group">
+                <label>Search</label>
+                <input
+                  type="text"
+                  className="search-input-clean"
+                  placeholder="Search email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="control-group">
+                <label>Filter by Role</label>
+                <select
+                  className="select-clean"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <option value="All">All Roles</option>
+                  <option value="admin">Admins</option>
+                  <option value="user">Users</option>
+                </select>
+              </div>
             </div>
 
             {loading ? (
@@ -374,6 +356,58 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+
+          {/* Add user modal */}
+          {showAddModal && (
+            <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2>Add New User</h2>
+                </div>
+                <form onSubmit={handleAddUser}>
+                  <div className="modal-body">
+                    <div className="form-group">
+                      <label className="form-label">Email Address</label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="user@example.com"
+                        autoFocus
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">
+                        Display Name <span className="text-muted">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={newDisplayName}
+                        onChange={(e) => setNewDisplayName(e.target.value)}
+                        placeholder="Jane Doe"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Role</label>
+                      <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="select-clean">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="modal-buttons">
+                    <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary">Add User</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

@@ -6,6 +6,12 @@ import { useAuth } from '../context/authContext';
 import { AdminOnly } from '../components/RoleBasedAccess';
 import Navigation from '../components/Navigation';
 import { getServiceType } from '../utils/serviceType';
+import { useAttendanceRecords, useMembers, invalidateCollection } from '../hooks/useFirestoreCollection';
+import { useToast } from '../components/Toast';
+import { CATEGORIES } from '../constants';
+import { Download, Flame, Trophy, Info } from 'lucide-react';
+import Skeleton, { SkeletonTableRows } from '../components/Skeleton';
+import { useConfirm } from '../components/ConfirmDialog';
 import {
   useReactTable,
   getCoreRowModel,
@@ -14,7 +20,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 
-const categories = ['L100', 'L200', 'L300', 'L400', 'Worker', 'Other', 'New'];
+const categories = CATEGORIES;
 
 const normalizeName = (name) => name.trim().toLowerCase();
 
@@ -50,11 +56,11 @@ const computeStreaks = (serviceDates, memberDatesSet) => {
 const Membership = () => {
   const [user] = useAuthState(auth);
   const { isAdmin } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
 
 
   const [activeTab, setActiveTab] = useState('members');
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState('All');
   const [bulkFromCategory, setBulkFromCategory] = useState('');
   const [bulkToCategory, setBulkToCategory] = useState('');
@@ -89,51 +95,43 @@ const Membership = () => {
     }
   };
 
+  const { data: membershipRecords, loading, refresh: refreshMembers } = useMembers();
+  const { data: attendanceRecords, refresh: refreshAttendance } = useAttendanceRecords();
+
+  const members = useMemo(() => {
+    if (!membershipRecords) return [];
+    const memberMap = new Map();
+    membershipRecords.forEach(data => {
+      if (!data.name) return;
+      const normalized = normalizeName(data.name);
+      if (!memberMap.has(normalized) ||
+          (data.timestamp && memberMap.get(normalized).timestamp < data.timestamp)) {
+        memberMap.set(normalized, {
+          id: data.id,
+          name: data.name.trim(),
+          category: data.category,
+          timestamp: data.timestamp,
+          normalizedName: normalized,
+        });
+      }
+    });
+    return Array.from(memberMap.values());
+  }, [membershipRecords]);
+
   const fetchMembers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const attendanceRef = collection(db, 'membership');
-      const attendanceSnapshot = await getDocs(attendanceRef);
-
-      const memberMap = new Map();
-      attendanceSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const normalized = normalizeName(data.name);
-        if (!memberMap.has(normalized) ||
-            (data.timestamp && memberMap.get(normalized).timestamp < data.timestamp)) {
-          memberMap.set(normalized, {
-            id: doc.id,
-            name: data.name.trim(),
-            category: data.category,
-            timestamp: data.timestamp,
-            normalizedName: normalized,
-          });
-        }
-      });
-
-      setMembers(Array.from(memberMap.values()));
-    } catch (error) {
-      console.error('Error fetching members:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchMembers(); }, [fetchMembers]);
+    invalidateCollection('membership');
+    refreshMembers();
+  }, [refreshMembers]);
 
   const fetchStreaks = useCallback(async () => {
+    if (!attendanceRecords) return;
     setStreaksLoading(true);
     try {
-      const snap = await getDocs(collection(db, 'attendance'));
-
-      // Build per-service-type sets: Sunday dates, Monday dates, member attendance per type
       const sundayDatesSet = new Set();
       const mondayDatesSet = new Set();
-      // key -> { name, category, sundayDates: Set, mondayDates: Set }
       const memberAttendance = new Map();
 
-      snap.docs.forEach(d => {
-        const data = d.data();
+      attendanceRecords.forEach(data => {
         const { name, category, date } = data;
         if (!name || !date) return;
         const type = getServiceType(data);
@@ -182,14 +180,14 @@ const Membership = () => {
     } finally {
       setStreaksLoading(false);
     }
-  }, []);
+  }, [attendanceRecords]);
 
   useEffect(() => {
     if (activeTab === 'streaks') fetchStreaks();
   }, [activeTab, fetchStreaks]);
 
   const handleCategoryChange = async (member, category) => {
-    if (!category) { alert('Please select a category.'); return; }
+    if (!category) { toast.warn('Please select a category.'); return; }
     try {
       const attendanceSnapshot = await getDocs(query(collection(db, 'attendance')));
       const membershipSnapshot = await getDocs(query(collection(db, 'membership')));
@@ -218,23 +216,26 @@ const Membership = () => {
         newCategory: category,
       });
 
-      alert(`Successfully updated ${member.name}'s category to ${category}.`);
-      await fetchMembers();
+      toast.success(`Updated ${member.name}'s category to ${category}.`);
+      invalidateCollection('membership');
+      invalidateCollection('attendance');
+      refreshMembers();
+      refreshAttendance();
     } catch (error) {
       console.error('Error updating category:', error);
-      alert('Error updating category. Please try again.');
+      toast.error('Error updating category. Please try again.');
     }
   };
 
   const handleNameChange = async (member, newName) => {
-    if (!newName || !newName.trim()) { alert('Please enter a valid name.'); return; }
+    if (!newName || !newName.trim()) { toast.warn('Please enter a valid name.'); return; }
     const trimmedNewName = newName.trim();
 
     const isDuplicate = members.some(m =>
       normalizeName(m.name) === normalizeName(trimmedNewName) &&
       normalizeName(m.name) !== normalizeName(member.name)
     );
-    if (isDuplicate) { alert('A member with this name already exists.'); return; }
+    if (isDuplicate) { toast.warn('A member with this name already exists.'); return; }
 
     try {
       const attendanceSnapshot = await getDocs(query(collection(db, 'attendance')));
@@ -264,34 +265,39 @@ const Membership = () => {
         newName: trimmedNewName,
       });
 
-      alert(`Successfully updated member name to "${trimmedNewName}".`);
-      await fetchMembers();
+      toast.success(`Updated member name to "${trimmedNewName}".`);
+      invalidateCollection('membership');
+      invalidateCollection('attendance');
+      refreshMembers();
+      refreshAttendance();
     } catch (error) {
       console.error('Error updating name:', error);
-      alert('Error updating name. Please try again.');
+      toast.error('Error updating name. Please try again.');
     }
   };
 
   const handleBulkCategoryUpdate = async () => {
     if (!bulkFromCategory || !bulkToCategory) {
-      alert('Please select both source and target categories.');
+      toast.warn('Please select both source and target categories.');
       return;
     }
     if (bulkFromCategory === bulkToCategory) {
-      alert('Source and target categories cannot be the same.');
+      toast.warn('Source and target categories cannot be the same.');
       return;
     }
 
     try {
       const membersToUpdate = members.filter(m => m.category === bulkFromCategory);
       if (membersToUpdate.length === 0) {
-        alert(`No members found in ${bulkFromCategory} category.`);
+        toast.info(`No members found in ${bulkFromCategory} category.`);
         return;
       }
 
-      const confirmUpdate = window.confirm(
-        `This will update ${membersToUpdate.length} members from ${bulkFromCategory} to ${bulkToCategory}. Continue?`
-      );
+      const confirmUpdate = await confirm({
+        title: `Move ${membersToUpdate.length} member${membersToUpdate.length === 1 ? '' : 's'}?`,
+        message: `Every member currently in ${bulkFromCategory} will be re-categorised as ${bulkToCategory}. Past attendance records will also be updated.`,
+        confirmLabel: `Move to ${bulkToCategory}`,
+      });
       if (!confirmUpdate) return;
 
       const attendanceSnapshot = await getDocs(query(collection(db, 'attendance')));
@@ -327,19 +333,22 @@ const Membership = () => {
 
       setBulkFromCategory('');
       setBulkToCategory('');
-      alert(`Successfully updated ${updatedCount} members from ${bulkFromCategory} to ${bulkToCategory}.`);
-      await fetchMembers();
+      toast.success(`Updated ${updatedCount} members from ${bulkFromCategory} to ${bulkToCategory}.`);
+      invalidateCollection('membership');
+      invalidateCollection('attendance');
+      refreshMembers();
+      refreshAttendance();
     } catch (error) {
       console.error('Error updating categories:', error);
-      alert('Error updating categories. Please try again.');
+      toast.error('Error updating categories. Please try again.');
     }
   };
 
   const handleAddMember = async () => {
     const trimmed = addName.trim();
-    if (!trimmed || !addCategory) { alert('Please enter a name and select a category.'); return; }
+    if (!trimmed || !addCategory) { toast.warn('Please enter a name and select a category.'); return; }
     const isDuplicate = members.some(m => normalizeName(m.name) === normalizeName(trimmed));
-    if (isDuplicate) { alert('A member with this name already exists.'); return; }
+    if (isDuplicate) { toast.warn('A member with this name already exists.'); return; }
     setAddLoading(true);
     try {
       await addDoc(collection(db, 'membership'), { name: trimmed, category: addCategory });
@@ -353,10 +362,11 @@ const Membership = () => {
       setAddName('');
       setAddCategory('');
       setShowAddForm(false);
-      await fetchMembers();
+      invalidateCollection('membership');
+      refreshMembers();
     } catch (err) {
       console.error('Error adding member:', err);
-      alert('Failed to add member.');
+      toast.error('Failed to add member.');
     } finally {
       setAddLoading(false);
     }
@@ -384,13 +394,13 @@ const Membership = () => {
       try {
         const text = evt.target.result;
         const lines = text.split(/\r?\n/).filter(l => l.trim());
-        if (lines.length < 2) { alert('CSV file is empty or has no data rows.'); return; }
+        if (lines.length < 2) { toast.warn('CSV file is empty or has no data rows.'); return; }
 
         // Parse header
         const header = lines[0].toLowerCase().split(',').map(h => h.trim());
         const nameIdx = header.indexOf('name');
         const catIdx = header.indexOf('category');
-        if (nameIdx === -1) { alert('CSV must have a "name" column.'); return; }
+        if (nameIdx === -1) { toast.warn('CSV must have a "name" column.'); return; }
 
         const existingNames = new Set(members.map(m => normalizeName(m.name)));
         let added = 0, skipped = 0;
@@ -418,10 +428,11 @@ const Membership = () => {
 
         setImportResult({ added, skipped });
         setTimeout(() => setImportResult(null), 6000);
-        await fetchMembers();
+        invalidateCollection('membership');
+        refreshMembers();
       } catch (err) {
         console.error('Error importing CSV:', err);
-        alert('Failed to import CSV.');
+        toast.error('Failed to import CSV.');
       } finally {
         setImportLoading(false);
       }
@@ -555,7 +566,7 @@ const Membership = () => {
 
   const exportStreaks = (format) => {
     if (filteredStreaks.length === 0) {
-      alert('No streak data to export.');
+      toast.info('No streak data to export.');
       return;
     }
 
@@ -592,17 +603,22 @@ const Membership = () => {
   };
 
   const streakMedal = (rank) => {
-    if (rank === 0) return '🥇';
-    if (rank === 1) return '🥈';
-    if (rank === 2) return '🥉';
-    return `${rank + 1}.`;
+    if (rank < 3) {
+      return <Trophy size={16} strokeWidth={2.5} className={`medal-${rank + 1}`} aria-label={`rank ${rank + 1}`} />;
+    }
+    return <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{rank + 1}.</span>;
   };
 
   const streakFlame = (streak) => {
-    if (streak >= 10) return '🔥🔥🔥';
-    if (streak >= 5) return '🔥🔥';
-    if (streak >= 2) return '🔥';
-    return '';
+    const count = streak >= 10 ? 3 : streak >= 5 ? 2 : streak >= 2 ? 1 : 0;
+    if (count === 0) return null;
+    return (
+      <span className="streak-flames" aria-label={`${count} flame${count !== 1 ? 's' : ''}`}>
+        {Array.from({ length: count }).map((_, i) => (
+          <Flame key={i} size={12} strokeWidth={2.5} style={{ color: '#f97316' }} />
+        ))}
+      </span>
+    );
   };
 
   if (loading) {
@@ -611,9 +627,24 @@ const Membership = () => {
         <Navigation user={user} />
         <div className="page-content">
           <div className="membership-container">
-            <div className="loading-spinner">
-              <div className="spinner"></div>
-              <p>Loading members...</p>
+            <div className="page-header-clean">
+              <h1>Membership Management</h1>
+              <p><span className="skeleton skeleton-line" style={{ width: '260px' }} /></p>
+            </div>
+            <div className="table-card">
+              <div className="table-header">
+                <div className="table-header-left">
+                  <Skeleton variant="title" width="180px" />
+                </div>
+              </div>
+              <div className="table-container-clean">
+                <table className="members-table-clean">
+                  <thead>
+                    <tr><th>Member Name</th><th style={{ width: '140px' }}>Category</th></tr>
+                  </thead>
+                  <SkeletonTableRows rows={8} cols={2} />
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -628,12 +659,17 @@ const Membership = () => {
         <div className="membership-container">
           <div className="page-header-clean">
             <h1>Membership Management</h1>
-            <p>Manage church members and their categories</p>
+            <p>
+              {activeTab === 'streaks'
+                ? 'Track consecutive-attendance streaks by service type'
+                : 'Manage church members and their categories'}
+            </p>
           </div>
 
           {!isAdmin() && (
             <div className="info-banner">
-              <span>ℹ️ You have view-only access. Contact an admin to edit member information or perform bulk updates.</span>
+              <Info size={16} strokeWidth={2.5} className="info-banner-icon" />
+              <span>You have view-only access. Contact an admin to edit member information or perform bulk updates.</span>
             </div>
           )}
 
@@ -740,39 +776,6 @@ const Membership = () => {
                 </div>
               )}
 
-              {/* Search & Filter Bar */}
-              <div className="controls-card">
-                <div className="controls-header">
-                  <h3>Search & Filter</h3>
-                  <button onClick={fetchMembers} className="refresh-btn-small">Refresh</button>
-                </div>
-                <div className="controls-grid">
-                  <div className="control-group">
-                    <label>Search Members</label>
-                    <input
-                      type="text"
-                      placeholder="Search by name..."
-                      value={globalFilter ?? ''}
-                      onChange={(e) => setGlobalFilter(e.target.value)}
-                      className="search-input-clean"
-                    />
-                  </div>
-                  <div className="control-group">
-                    <label>Filter by Category</label>
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="select-clean"
-                    >
-                      <option value="All">All Categories</option>
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
               {/* Bulk Update Card - Admin Only */}
               <AdminOnly>
                 <div className="bulk-update-card">
@@ -827,10 +830,40 @@ const Membership = () => {
               {/* TanStack Members Table */}
               <div className="table-card">
                 <div className="table-header">
-                  <h3>Members List</h3>
-                  <div className="table-info">
-                    {table.getRowModel().rows.length} members
-                    {isAdmin() && <span className="edit-hint"> — click any cell to edit</span>}
+                  <div className="table-header-left">
+                    <h3>Members List</h3>
+                    <span className="table-info">
+                      {table.getRowModel().rows.length} members
+                      {isAdmin() && <span className="edit-hint"> — click any cell to edit</span>}
+                    </span>
+                  </div>
+                  <div className="table-header-actions">
+                    <button onClick={fetchMembers} className="refresh-btn-small">Refresh</button>
+                  </div>
+                </div>
+                <div className="table-filter-bar">
+                  <div className="control-group">
+                    <label>Search Members</label>
+                    <input
+                      type="text"
+                      placeholder="Search by name..."
+                      value={globalFilter ?? ''}
+                      onChange={(e) => setGlobalFilter(e.target.value)}
+                      className="search-input-clean"
+                    />
+                  </div>
+                  <div className="control-group">
+                    <label>Filter by Category</label>
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="select-clean"
+                    >
+                      <option value="All">All Categories</option>
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="table-container-clean">
@@ -880,17 +913,26 @@ const Membership = () => {
           {/* ── STREAKS TAB ── */}
           {activeTab === 'streaks' && (
             <div className="streaks-container">
-              <div className="controls-card">
-                <div className="controls-header">
-                  <h3>Attendance Streaks</h3>
-                  <button onClick={fetchStreaks} className="refresh-btn-small" disabled={streaksLoading}>
-                    {streaksLoading ? 'Loading...' : 'Refresh'}
-                  </button>
+              <div className="table-card">
+                <div className="table-header">
+                  <div className="table-header-left">
+                    <h3>Streak Leaderboard</h3>
+                    <span className="table-info">
+                      {streaksLoading ? 'computing…' : `${filteredStreaks.length} members`}
+                    </span>
+                  </div>
+                  <div className="table-header-actions">
+                    <button onClick={fetchStreaks} className="refresh-btn-small" disabled={streaksLoading}>
+                      {streaksLoading ? 'Loading…' : 'Refresh'}
+                    </button>
+                    <button onClick={() => exportStreaks('csv')} className="refresh-btn-small" disabled={streaksLoading}>
+                      <Download size={12} strokeWidth={2.5} className="icon-inline" style={{ marginRight: '0.3rem' }} />
+                      Export CSV
+                    </button>
+                  </div>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #888)', margin: '0 0 1rem' }}>
-                  A streak counts consecutive service dates attended. Missing a service resets the current streak.
-                </p>
-                <div className="controls-grid">
+
+                <div className="table-filter-bar">
                   <div className="control-group">
                     <label>Search</label>
                     <input
@@ -908,25 +950,15 @@ const Membership = () => {
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                   </div>
+                  <p className="hint-sub table-filter-hint">
+                    A streak counts consecutive service dates attended. Click any streak column header to sort.
+                  </p>
                 </div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
-                  Tip: click any streak column header to sort.
-                </p>
-              </div>
 
               {streaksLoading ? (
                 <div className="loading-spinner"><div className="spinner"></div><p>Computing streaks...</p></div>
               ) : (
-                <div className="table-card">
-                  <div className="table-header">
-                    <h3>Streak Leaderboard</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span className="table-info">{filteredStreaks.length} members</span>
-                      <button onClick={() => exportStreaks('csv')} className="refresh-btn-small">
-                        Export CSV
-                      </button>
-                    </div>
-                  </div>
+                <>
                   <div className="table-container-clean">
                     <table className="members-table-clean streaks-table">
                       <thead>
@@ -1013,8 +1045,9 @@ const Membership = () => {
                   {filteredStreaks.length === 0 && (
                     <div className="no-members-card"><p>No streak data found.</p></div>
                   )}
-                </div>
+                </>
               )}
+              </div>
             </div>
           )}
 

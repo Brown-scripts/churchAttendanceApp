@@ -4,26 +4,31 @@ import { db, auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useAuth } from '../context/authContext';
 import Navigation from '../components/Navigation';
+import {
+  Plus, Users, Minus, RefreshCw, RefreshCcwDot, Pencil, UserPlus, UserMinus,
+  Upload, Download, Settings, Circle,
+} from 'lucide-react';
+import { SkeletonKpiRow, Skeleton } from '../components/Skeleton';
 
 const ACTION_CONFIG = {
-  'Attendance Added':      { color: 'action-success',  label: 'Added',        icon: '+' },
-  'Bulk Attendance Added': { color: 'action-success',  label: 'Bulk Added',   icon: '++' },
-  'Attendance Removed':    { color: 'action-warning',  label: 'Removed',      icon: '–' },
-  'Category Change':       { color: 'action-warning',  label: 'Category',     icon: '↻' },
-  'Bulk Category Update':  { color: 'action-warning',  label: 'Bulk Cat.',    icon: '↻↻' },
-  'Name Change':           { color: 'action-info',     label: 'Renamed',      icon: '✎' },
-  'Member Added':          { color: 'action-primary',  label: 'Member Added', icon: '👤+' },
-  'CSV Import':            { color: 'action-primary',  label: 'CSV Import',   icon: '⤓' },
-  'User Added':            { color: 'action-primary',  label: 'User Added',   icon: '👤+' },
-  'User Removed':          { color: 'action-secondary',label: 'User Removed', icon: '👤–' },
-  'User Role Updated':     { color: 'action-info',     label: 'Role Update',  icon: '⚙' },
-  'Data Export':           { color: 'action-primary',  label: 'Exported',     icon: '⤴' },
+  'Attendance Added':      { color: 'action-success',  label: 'Added',        Icon: Plus },
+  'Bulk Attendance Added': { color: 'action-success',  label: 'Bulk Added',   Icon: Users },
+  'Attendance Removed':    { color: 'action-warning',  label: 'Removed',      Icon: Minus },
+  'Category Change':       { color: 'action-warning',  label: 'Category',     Icon: RefreshCw },
+  'Bulk Category Update':  { color: 'action-warning',  label: 'Bulk Cat.',    Icon: RefreshCcwDot },
+  'Name Change':           { color: 'action-info',     label: 'Renamed',      Icon: Pencil },
+  'Member Added':          { color: 'action-primary',  label: 'Member Added', Icon: UserPlus },
+  'CSV Import':            { color: 'action-primary',  label: 'CSV Import',   Icon: Upload },
+  'User Added':            { color: 'action-primary',  label: 'User Added',   Icon: UserPlus },
+  'User Removed':          { color: 'action-secondary',label: 'User Removed', Icon: UserMinus },
+  'User Role Updated':     { color: 'action-info',     label: 'Role Update',  Icon: Settings },
+  'Data Export':           { color: 'action-primary',  label: 'Exported',     Icon: Download },
 };
 
 const PAGE_SIZE = 100;
 
 const getActionConfig = (action) =>
-  ACTION_CONFIG[action] || { color: 'action-default', label: action, icon: '•' };
+  ACTION_CONFIG[action] || { color: 'action-default', label: action, Icon: Circle };
 
 // Bucket a date into Today / Yesterday / This week / Earlier
 const bucketFor = (date) => {
@@ -146,7 +151,16 @@ const Logs = () => {
         <Navigation user={user} />
         <div className="page-content">
           <div className="logs-container">
-            <div className="loading-spinner"><div className="spinner" /><p>Loading audit logs...</p></div>
+            <div className="page-header-clean">
+              <h1>Audit Logs</h1>
+              <p><Skeleton variant="line" width="200px" /></p>
+            </div>
+            <SkeletonKpiRow count={3} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} variant="block" height="56px" />
+              ))}
+            </div>
           </div>
         </div>
       </>
@@ -239,7 +253,7 @@ const Logs = () => {
                           style={hasMembers ? { cursor: 'pointer' } : undefined}
                         >
                           <div className={`log-icon log-icon-${cfg.color.replace('action-', '')}`}>
-                            {cfg.icon}
+                            <cfg.Icon size={14} strokeWidth={2.5} />
                           </div>
                           <div className="log-body">
                             <div className="log-headline">

@@ -1,6 +1,7 @@
 import { saveAs } from "file-saver";
 import { attendanceCollection } from "../firebase";
 import { getDocs } from "firebase/firestore";
+import { toast } from "./Toast";
 import {
   Document,
   Packer,
@@ -277,7 +278,7 @@ const generateReport = async (serviceName, format = "word", startDate = null, en
   });
 
   if (Object.keys(attendanceData).length === 0) {
-    alert("No attendance data found for the selected period.");
+    toast.info("No attendance data found for the selected period.");
     return;
   }
 

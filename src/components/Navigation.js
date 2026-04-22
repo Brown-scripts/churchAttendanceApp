@@ -4,14 +4,19 @@ import { getAuth, signOut } from 'firebase/auth';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../context/authContext';
 import { AdminOnly } from '../components/RoleBasedAccess';
+import {
+  LayoutDashboard, CheckSquare, BarChart3, UserRound, ScrollText, Shield,
+  Sun, Moon, Menu, X,
+} from 'lucide-react';
+
 const logo = '/z1-logo.jpeg';
 
 const navLinks = [
-  { path: '/',           label: 'Dashboard' },
-  { path: '/attendance', label: 'Attendance' },
-  { path: '/analytics',  label: 'Analytics'  },
-  { path: '/membership', label: 'Members'    },
-  { path: '/logs',       label: 'Audit Logs' },
+  { path: '/',           label: 'Dashboard',  Icon: LayoutDashboard },
+  { path: '/attendance', label: 'Attendance', Icon: CheckSquare },
+  { path: '/analytics',  label: 'Analytics',  Icon: BarChart3 },
+  { path: '/membership', label: 'Members',    Icon: UserRound },
+  { path: '/logs',       label: 'Audit Logs', Icon: ScrollText },
 ];
 
 const Navigation = ({ user }) => {
@@ -38,6 +43,17 @@ const Navigation = ({ user }) => {
 
   const isActive = (path) => location.pathname === path;
 
+  const renderLink = ({ path, label, Icon }) => (
+    <a
+      href={path}
+      className={`navbar-nav-link${isActive(path) ? ' active' : ''}`}
+      onClick={(e) => { e.preventDefault(); go(path); }}
+    >
+      <Icon size={15} strokeWidth={2} className="navbar-nav-icon" />
+      <span>{label}</span>
+    </a>
+  );
+
   return (
     <nav className="navbar">
       <div className="navbar-container">
@@ -49,26 +65,12 @@ const Navigation = ({ user }) => {
 
         {/* Desktop Links */}
         <ul className="navbar-nav">
-          {navLinks.map(({ path, label }) => (
-            <li key={path} className="navbar-nav-item">
-              <a
-                href={path}
-                className={`navbar-nav-link${isActive(path) ? ' active' : ''}`}
-                onClick={(e) => { e.preventDefault(); go(path); }}
-              >
-                {label}
-              </a>
-            </li>
+          {navLinks.map(link => (
+            <li key={link.path} className="navbar-nav-item">{renderLink(link)}</li>
           ))}
           <AdminOnly>
             <li className="navbar-nav-item">
-              <a
-                href="/admin"
-                className={`navbar-nav-link${isActive('/admin') ? ' active' : ''}`}
-                onClick={(e) => { e.preventDefault(); go('/admin'); }}
-              >
-                Admin
-              </a>
+              {renderLink({ path: '/admin', label: 'Admin', Icon: Shield })}
             </li>
           </AdminOnly>
         </ul>
@@ -86,23 +88,7 @@ const Navigation = ({ user }) => {
             title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
             aria-label="Toggle theme"
           >
-            {isDarkMode ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/>
-                <line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/>
-                <line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
+            {isDarkMode ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
           </button>
           {user ? (
             <button onClick={handleLogout} className="navbar-logout">Sign out</button>
@@ -117,41 +103,18 @@ const Navigation = ({ user }) => {
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
-          {mobileOpen ? (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-          )}
+          {mobileOpen ? <X size={22} strokeWidth={2} /> : <Menu size={22} strokeWidth={2} />}
         </button>
       </div>
 
       {/* Mobile menu */}
       <div className={`navbar-mobile-menu${mobileOpen ? ' open' : ''}`}>
         <div className="navbar-mobile-nav">
-          {navLinks.map(({ path, label }) => (
-            <a
-              key={path}
-              href={path}
-              className={`navbar-nav-link${isActive(path) ? ' active' : ''}`}
-              onClick={(e) => { e.preventDefault(); go(path); }}
-            >
-              {label}
-            </a>
+          {navLinks.map(link => (
+            <React.Fragment key={link.path}>{renderLink(link)}</React.Fragment>
           ))}
           <AdminOnly>
-            <a
-              href="/admin"
-              className={`navbar-nav-link${isActive('/admin') ? ' active' : ''}`}
-              onClick={(e) => { e.preventDefault(); go('/admin'); }}
-            >
-              Admin
-            </a>
+            {renderLink({ path: '/admin', label: 'Admin', Icon: Shield })}
           </AdminOnly>
         </div>
         <div className="navbar-mobile-actions">
@@ -161,12 +124,14 @@ const Navigation = ({ user }) => {
             </div>
           )}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <button onClick={toggleTheme} className="theme-toggle" style={{ width: 'auto', padding: '0.4rem 0.75rem', gap: '0.5rem', display: 'flex', alignItems: 'center' }}>
-              {isDarkMode ? (
-                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><span style={{fontSize:'0.85rem'}}>Light</span></>
-              ) : (
-                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span style={{fontSize:'0.85rem'}}>Dark</span></>
-              )}
+            <button
+              onClick={toggleTheme}
+              className="theme-toggle"
+              style={{ width: 'auto', padding: '0.4rem 0.75rem', gap: '0.5rem', display: 'flex', alignItems: 'center' }}
+            >
+              {isDarkMode
+                ? <><Sun size={16} strokeWidth={2} /><span style={{fontSize:'0.85rem'}}>Light</span></>
+                : <><Moon size={16} strokeWidth={2} /><span style={{fontSize:'0.85rem'}}>Dark</span></>}
             </button>
             {user ? (
               <button onClick={handleLogout} className="navbar-logout">Sign out</button>
